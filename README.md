@@ -4,7 +4,7 @@
 
 An automated code review platform that analyzes pull requests for code quality, security vulnerabilities, and best practices. When developers create PRs on GitHub/GitLab, the system automatically reviews the code and posts detailed feedback.
 
-**Status:** Phase 2 - Database & Authentication Setup
+**Status:** Phase 5 - Backend Core Logic (MVP)
 
 ---
 
@@ -12,82 +12,67 @@ An automated code review platform that analyzes pull requests for code quality, 
 
 ### System Flow
 ```
-GitHub PR Created
+GitHub PR Created / Selected
     ↓
-Webhook → .NET API
+Request Analysis (.NET API)
     ↓
-Fetch PR Code (GitHub API)
+Fetch PR Code (Octokit)
     ↓
-Send to PHP Analysis Service
+Send to PHP Analysis Service (HTTP)
     ↓
-Receive Analysis Results
+Receive Analysis Report (JSON)
     ↓
-Store in PostgreSQL
-    ↓
-Post Comment on GitHub PR
-    ↓
-Display in React Dashboard
+Return to User (Dashboard)
 ```
 
 ### Tech Stack
 - **Frontend:** React (Port 3000)
-- **Backend API:** .NET 8.0 Web API (Port 5116)
-- **Analysis Engine:** PHP (Port 8000)
+- **Backend API:** .NET 9.0 Web API (Port 5116)
+- **Analysis Engine:** PHP 8+ (Slim Framework) (Port 8000)
 - **Database:** MySQL 8.0
-- **Cache/Queue:** Redis (planned)
 - **Containerization:** Docker + Docker Compose
-- **Orchestration:** Kubernetes (planned)
-- **CI/CD:** GitHub Actions (planned)
 
 ---
 
 ## 📁 Project Structure
 ```
 project-root/
-├── dotnet-api/              # .NET Web API Service
-│   ├── Controllers/         # API endpoints
-│   ├── Models/             # Database entity classes (EF Core)
-│   ├── Contracts/          # API request/response objects
+├── dotnet-api/              # .NET Web API Orhcestrator
+│   ├── Controllers/         # Auth, Review
+│   ├── Models/             # EF Core Models & DTOs
+│   ├── Services/           # ReviewService (The Brain)
 │   ├── Data/               # DbContext & migrations
-│   ├── Services/           # Business logic
-│   ├── Middleware/         # Custom middleware (JWT, etc.)
-│   ├── Helpers/            # Utility classes
-│   └── Program.cs          # Entry point
+│   └── Program.cs          # DI & Configuration
 │
 ├── php-service/            # PHP Analysis Engine
-│   └── (PHP analysis logic)
+│   ├── app/Controllers     # AnalysisController
+│   ├── app/Services        # Complexity, Security, Style logic
+│   └── public/index.php    # Entry point
 │
 ├── react-frontend/         # React Dashboard
-│   └── (React components)
 │
-├── DB_Schema.sql           # database schema
-├── docker-compose.yml      
+├── DB_Schema.sql           # Reference schema
+├── setup_instructions.md   # Setup Guide
 └── README.md              
 ```
 
 ---
 
-## 🗄️ Database Schema
-
 ## 🚀 Current Development Phase
 
-### Phase 2: Database & Authentication
+### Phase 5: Core Analysis Logic (MVP)
 
 **Goals:**
-- ✅ Design database schema
-- ⏳ Set up Entity Framework Core in .NET
-- ⏳ Create database migrations
-- ⏳ Build user registration endpoint
-- ⏳ Build login endpoint with JWT
-- ⏳ Add authentication middleware
-- ⏳ Create login/register UI in React
+- ✅ Database & Auth Setup (Phase 2)
+- ✅ Fetch Code from GitHub (Octokit)
+- ✅ Configure Service-to-Service communication (HTTP)
+- ✅ Implement PHP Analysis logic (Slim)
+- ✅ End-to-End flow (.NET -> PHP -> .NET)
 
-**Next Steps:**
-1. Install EF Core packages in .NET
-2. Create Model classes for all 7 tables
-3. Create ApplicationDbContext
-4. Generate and apply migrations
-5. Build AuthController with register/login endpoints
+**Next Steps (Phase 6):**
+1. Integrate "Analyze" button in React.
+2. Link GitHub OAuth for private repos.
+3. Dockerize and Compose all services.
 
 ---
 

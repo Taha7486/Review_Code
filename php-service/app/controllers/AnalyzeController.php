@@ -1,48 +1,107 @@
 <?php
 namespace App\Controllers;
 
-use App\Services\ComplexityAnalyzeService;
+use App\Services\CodeAnalysisService;
+use Psr\Http\Message\ResponseInterface as Response;
+use Psr\Http\Message\ServerRequestInterface as Request;
 
-class AnalyzeController {
+/**
+ * Analyze Controller
+ * Handles code analysis API endpoints
+ */
+class AnalyzeController
+{
 
-    private $complexityService;
+    private CodeAnalysisService $analysisService;
 
-    public function __construct() {
-        $this->complexityService = new ComplexityAnalyzeService();
+    public function __construct()
+    {
+        $this->analysisService = new CodeAnalysisService();
     }
 
-    public function analyzeCode($request, $response) {
+    /**
+     * Analyze single code snippet
+     * POST /api/analyze/code
+     * Body: { "code": "...", "file_path": "optional" }
+     */
+    public function analyzeCode(Request $request, Response $response): Response
+    {
         $body = $request->getParsedBody();
         $code = $body['code'] ?? null;
+        $filePath = $body['file_path'] ?? 'unknown';
 
         if (!$code) {
-            $error = json_encode(['success' => false , 'error'=> 'Code required']);
+            $error = json_encode([
+                'success' => false,
+                'error' => 'Code is required'
+            ]);
             $response->getBody()->write($error);
-            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
-            
+            return $response
+                ->withHeader('Content-Type', 'application/json')
+                ->withStatus(400);
         }
-        
-        // Analyze code using the ComplexityAnalyzeService
-        $analysis = $this->complexityService->analyzeCode($code);
 
-        $result = json_encode([
-            'success'=> true , 
-            'data'=>[
-                'cyclomatic_complexity' => $analysis['cyclomatic_complexity'],
-                'complexity_level' => $analysis['complexity_level'],
-                'code_length' => $analysis['code_length'],
-                'lines_of_code' => $analysis['lines_of_code'],
-                'function_count' => $analysis['function_count'],
-                'class_count' => $analysis['class_count']
-            ]
-        ]);
+        try {
+            // Analyze the code
+            $result = $this->analysisService->analyzeCode($code, $filePath);
 
-        $response->getBody()->write($result);
-        return $response->withHeader('Content-Type', 'application/json');
+            $responseData = json_encode($result);
+            $response->getBody()->write($responseData);
+
+            return $response->withHeader('Content-Type', 'application/json');
+
+        } catch (\Exception $e) {
+            $error = json_encode([
+                'success' => false,
+                'error' => 'Analysis failed: ' . $e->getMessage()
+            ]);
+            $response->getBody()->write($error);
+            return $response
+                ->withHeader('Content-Type', 'application/json')
+                ->withStatus(500);
+        }
     }
 
+    /**
+     * Analyze multiple files
+     * POST /api/analyze/files
+     * Body: { "files": [{ "path": "...", "content": "..." }] }
+     */
+    public function analyzeFiles(Request $request, Response $response): Response
+    {
+        $body = $request->getParsedBody();
+        $files = $body['files'] ?? null;
 
+        if (!$files || !is_array($files)) {
+            $error = json_encode([
+                'success' => false,
+                'error' => 'Files array is required'
+            ]);
+            $response->getBody()->write($error);
+            return $response
+                ->withHeader('Content-Type', 'application/json')
+                ->withStatus(400);
+        }
 
+        try {
+            // Analyze all files
+            $result = $this->analysisService->analyzeMultipleFiles($files);
 
+            $responseData = json_encode($result);
+            $response->getBody()->write($responseData);
+
+            return $response->withHeader('Content-Type', 'application/json');
+
+        } catch (\Exception $e) {
+            $error = json_encode([
+                'success' => false,
+                'error' => 'Analysis failed: ' . $e->getMessage()
+            ]);
+            $response->getBody()->write($error);
+            return $response
+                ->withHeader('Content-Type', 'application/json')
+                ->withStatus(500);
+        }
+    }
 }
 ?>
