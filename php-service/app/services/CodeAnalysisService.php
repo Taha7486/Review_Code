@@ -39,11 +39,24 @@ class CodeAnalysisService
         $styleIssues = $this->styleAnalyzer->analyze($code, $filePath);
 
         // Combine all issues
-        $allIssues = array_merge(
+        $rawIssues = array_merge(
             $complexityResult['issues'],
             $securityIssues,
             $styleIssues
         );
+
+        // Normalize issues keys to camelCase
+        $allIssues = array_map(function ($issue) {
+            return [
+                'filePath' => $issue['file_path'] ?? $issue['filePath'] ?? '',
+                'lineNumber' => $issue['line_number'] ?? $issue['lineNumber'] ?? 0,
+                'severity' => $issue['severity'] ?? 'info',
+                'category' => $issue['category'] ?? 'other',
+                'message' => $issue['message'] ?? '',
+                'ruleId' => $issue['rule_id'] ?? $issue['ruleId'] ?? '',
+                'suggestedFix' => $issue['suggested_fix'] ?? $issue['suggestedFix'] ?? ''
+            ];
+        }, $rawIssues);
 
         // Calculate overall score
         $score = $this->calculateScore($allIssues, $complexityResult['metrics']);
@@ -53,17 +66,17 @@ class CodeAnalysisService
 
         return [
             'success' => true,
-            'file_path' => $filePath,
+            'filePath' => $filePath,
             'metrics' => $complexityResult['metrics'],
             'score' => $score,
             'issues' => $allIssues,
-            'issues_by_severity' => $issuesBySeverity,
+            'issuesBySeverity' => $issuesBySeverity,
             'summary' => [
-                'total_issues' => count($allIssues),
-                'critical_count' => count($issuesBySeverity['critical'] ?? []),
-                'major_count' => count($issuesBySeverity['major'] ?? []),
-                'minor_count' => count($issuesBySeverity['minor'] ?? []),
-                'info_count' => count($issuesBySeverity['info'] ?? []),
+                'totalIssues' => count($allIssues),
+                'criticalCount' => count($issuesBySeverity['critical'] ?? []),
+                'majorCount' => count($issuesBySeverity['major'] ?? []),
+                'minorCount' => count($issuesBySeverity['minor'] ?? []),
+                'infoCount' => count($issuesBySeverity['info'] ?? []),
             ]
         ];
     }
@@ -87,7 +100,7 @@ class CodeAnalysisService
             $result = $this->analyzeCode($content, $filePath);
             $results[] = $result;
 
-            $totalIssues += $result['summary']['total_issues'];
+            $totalIssues += $result['summary']['totalIssues']; // Updated key
             $totalScore += $result['score'];
         }
 
@@ -95,9 +108,9 @@ class CodeAnalysisService
 
         return [
             'success' => true,
-            'files_analyzed' => count($files),
-            'total_issues' => $totalIssues,
-            'average_score' => round($averageScore, 2),
+            'filesAnalyzed' => count($files),
+            'totalIssues' => $totalIssues,
+            'averageScore' => round($averageScore, 2),
             'results' => $results
         ];
     }

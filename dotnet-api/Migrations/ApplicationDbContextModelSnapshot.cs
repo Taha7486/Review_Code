@@ -22,7 +22,7 @@ namespace dotnet_api.Migrations
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
 
-            modelBuilder.Entity("dotnet_api.Models.CodeReview", b =>
+            modelBuilder.Entity("dotnet_api.Models.AnalysisIssue", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -31,41 +31,62 @@ namespace dotnet_api.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime?>("CompletedAt")
-                        .HasColumnType("datetime(6)")
-                        .HasColumnName("completed_at");
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)")
+                        .HasColumnName("category");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)")
                         .HasColumnName("created_at");
 
-                    b.Property<int>("PullRequestId")
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)")
+                        .HasColumnName("file_path");
+
+                    b.Property<int?>("LineEnd")
                         .HasColumnType("int")
-                        .HasColumnName("pull_request_id");
+                        .HasColumnName("line_end");
 
-                    b.Property<string>("RawOutput")
-                        .HasColumnType("JSON")
-                        .HasColumnName("raw_output");
+                    b.Property<int?>("LineStart")
+                        .HasColumnType("int")
+                        .HasColumnName("line_start");
 
-                    b.Property<string>("Status")
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("message");
+
+                    b.Property<string>("RuleId")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)")
+                        .HasColumnName("rule_id");
+
+                    b.Property<int>("RunId")
+                        .HasColumnType("int")
+                        .HasColumnName("run_id");
+
+                    b.Property<string>("Severity")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("varchar(50)")
-                        .HasColumnName("status");
-
-                    b.Property<string>("Summary")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("summary");
+                        .HasColumnName("severity");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("PullRequestId")
-                        .HasDatabaseName("idx_reviews_pr_id");
+                    b.HasIndex("RunId")
+                        .HasDatabaseName("idx_ai_run");
 
-                    b.ToTable("code_reviews");
+                    b.HasIndex("RunId", "Severity")
+                        .HasDatabaseName("idx_ai_run_sev");
+
+                    b.ToTable("analysis_issues");
                 });
 
-            modelBuilder.Entity("dotnet_api.Models.Metric", b =>
+            modelBuilder.Entity("dotnet_api.Models.AnalysisMetric", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -83,19 +104,19 @@ namespace dotnet_api.Migrations
                         .HasColumnType("JSON")
                         .HasColumnName("metrics_json");
 
-                    b.Property<int>("ReviewId")
+                    b.Property<int>("RunId")
                         .HasColumnType("int")
-                        .HasColumnName("review_id");
+                        .HasColumnName("run_id");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ReviewId")
-                        .HasDatabaseName("idx_metrics_review_id");
+                    b.HasIndex("RunId")
+                        .HasDatabaseName("idx_am_run");
 
-                    b.ToTable("metrics");
+                    b.ToTable("analysis_metrics");
                 });
 
-            modelBuilder.Entity("dotnet_api.Models.PullRequest", b =>
+            modelBuilder.Entity("dotnet_api.Models.AnalysisRun", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -104,51 +125,81 @@ namespace dotnet_api.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int?>("AuthorUserId")
-                        .HasColumnType("int")
-                        .HasColumnName("author_user_id");
+                    b.Property<decimal>("AverageScore")
+                        .HasColumnType("DECIMAL(5,2)")
+                        .HasColumnName("average_score");
+
+                    b.Property<string>("BaseCommitSha")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)")
+                        .HasColumnName("base_commit_sha");
+
+                    b.Property<string>("BranchName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)")
+                        .HasColumnName("branch_name");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("completed_at");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)")
                         .HasColumnName("created_at");
 
-                    b.Property<long>("GithubPrId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("github_pr_id");
+                    b.Property<string>("DefaultBranch")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)")
+                        .HasColumnName("default_branch");
 
-                    b.Property<int>("Number")
+                    b.Property<int>("FilesAnalyzed")
                         .HasColumnType("int")
-                        .HasColumnName("number");
+                        .HasColumnName("files_analyzed");
+
+                    b.Property<string>("HeadCommitSha")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)")
+                        .HasColumnName("head_commit_sha");
+
+                    b.Property<string>("RawOutput")
+                        .HasColumnType("LONGTEXT")
+                        .HasColumnName("raw_output");
 
                     b.Property<int>("RepositoryId")
                         .HasColumnType("int")
                         .HasColumnName("repository_id");
 
-                    b.Property<string>("State")
+                    b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("varchar(50)")
-                        .HasColumnName("state");
+                        .HasColumnName("status");
 
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)")
-                        .HasColumnName("title");
+                    b.Property<string>("Summary")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("summary");
 
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime(6)")
-                        .HasColumnName("updated_at");
+                    b.Property<int>("TotalIssues")
+                        .HasColumnType("int")
+                        .HasColumnName("total_issues");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AuthorUserId");
+                    b.HasIndex("Status")
+                        .HasDatabaseName("idx_runs_status");
 
-                    b.HasIndex("RepositoryId", "Number")
+                    b.HasIndex("RepositoryId", "BranchName")
+                        .HasDatabaseName("idx_runs_repo_branch");
+
+                    b.HasIndex("RepositoryId", "BaseCommitSha", "HeadCommitSha")
                         .IsUnique()
-                        .HasDatabaseName("idx_pr_repo_number");
+                        .HasDatabaseName("idx_runs_repo_commits");
 
-                    b.ToTable("pull_requests");
+                    b.ToTable("analysis_runs");
                 });
 
             modelBuilder.Entity("dotnet_api.Models.Repository", b =>
@@ -211,100 +262,6 @@ namespace dotnet_api.Migrations
                     b.ToTable("repositories");
                 });
 
-            modelBuilder.Entity("dotnet_api.Models.ReviewConfiguration", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasColumnName("id");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ConfigJson")
-                        .IsRequired()
-                        .HasColumnType("JSON")
-                        .HasColumnName("config_json");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)")
-                        .HasColumnName("created_at");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime(6)")
-                        .HasColumnName("updated_at");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("review_configurations");
-                });
-
-            modelBuilder.Entity("dotnet_api.Models.ReviewIssue", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasColumnName("id");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("FilePath")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)")
-                        .HasColumnName("file_path");
-
-                    b.Property<int?>("LineEnd")
-                        .HasColumnType("int")
-                        .HasColumnName("line_end");
-
-                    b.Property<int?>("LineStart")
-                        .HasColumnType("int")
-                        .HasColumnName("line_start");
-
-                    b.Property<string>("Message")
-                        .IsRequired()
-                        .HasColumnType("TEXT")
-                        .HasColumnName("message");
-
-                    b.Property<int>("ReviewId")
-                        .HasColumnType("int")
-                        .HasColumnName("review_id");
-
-                    b.Property<string>("RuleId")
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)")
-                        .HasColumnName("rule_id");
-
-                    b.Property<string>("Severity")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)")
-                        .HasColumnName("severity");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)")
-                        .HasColumnName("type");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ReviewId")
-                        .HasDatabaseName("idx_issues_review_id");
-
-                    b.ToTable("review_issues");
-                });
-
             modelBuilder.Entity("dotnet_api.Models.User", b =>
                 {
                     b.Property<int>("Id")
@@ -313,11 +270,6 @@ namespace dotnet_api.Migrations
                         .HasColumnName("id");
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("AvatarUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)")
-                        .HasColumnName("avatar_url");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)")
@@ -329,9 +281,10 @@ namespace dotnet_api.Migrations
                         .HasColumnType("varchar(255)")
                         .HasColumnName("email");
 
-                    b.Property<long?>("GithubUserId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("github_user_id");
+                    b.Property<string>("GithubAccessToken")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)")
+                        .HasColumnName("github_access_token");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
@@ -354,48 +307,38 @@ namespace dotnet_api.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
-                    b.HasIndex("GithubUserId")
-                        .HasDatabaseName("idx_users_github_user_id");
-
                     b.ToTable("users");
                 });
 
-            modelBuilder.Entity("dotnet_api.Models.CodeReview", b =>
+            modelBuilder.Entity("dotnet_api.Models.AnalysisIssue", b =>
                 {
-                    b.HasOne("dotnet_api.Models.PullRequest", "PullRequest")
-                        .WithMany("CodeReviews")
-                        .HasForeignKey("PullRequestId")
+                    b.HasOne("dotnet_api.Models.AnalysisRun", "Run")
+                        .WithMany("Issues")
+                        .HasForeignKey("RunId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("PullRequest");
+                    b.Navigation("Run");
                 });
 
-            modelBuilder.Entity("dotnet_api.Models.Metric", b =>
+            modelBuilder.Entity("dotnet_api.Models.AnalysisMetric", b =>
                 {
-                    b.HasOne("dotnet_api.Models.CodeReview", "Review")
+                    b.HasOne("dotnet_api.Models.AnalysisRun", "Run")
                         .WithMany("Metrics")
-                        .HasForeignKey("ReviewId")
+                        .HasForeignKey("RunId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Review");
+                    b.Navigation("Run");
                 });
 
-            modelBuilder.Entity("dotnet_api.Models.PullRequest", b =>
+            modelBuilder.Entity("dotnet_api.Models.AnalysisRun", b =>
                 {
-                    b.HasOne("dotnet_api.Models.User", "AuthorUser")
-                        .WithMany("PullRequests")
-                        .HasForeignKey("AuthorUserId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("dotnet_api.Models.Repository", "Repository")
-                        .WithMany("PullRequests")
+                        .WithMany("AnalysisRuns")
                         .HasForeignKey("RepositoryId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("AuthorUser");
 
                     b.Navigation("Repository");
                 });
@@ -411,52 +354,21 @@ namespace dotnet_api.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("dotnet_api.Models.ReviewConfiguration", b =>
+            modelBuilder.Entity("dotnet_api.Models.AnalysisRun", b =>
                 {
-                    b.HasOne("dotnet_api.Models.User", "User")
-                        .WithMany("ReviewConfigurations")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                    b.Navigation("Issues");
 
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("dotnet_api.Models.ReviewIssue", b =>
-                {
-                    b.HasOne("dotnet_api.Models.CodeReview", "Review")
-                        .WithMany("ReviewIssues")
-                        .HasForeignKey("ReviewId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Review");
-                });
-
-            modelBuilder.Entity("dotnet_api.Models.CodeReview", b =>
-                {
                     b.Navigation("Metrics");
-
-                    b.Navigation("ReviewIssues");
-                });
-
-            modelBuilder.Entity("dotnet_api.Models.PullRequest", b =>
-                {
-                    b.Navigation("CodeReviews");
                 });
 
             modelBuilder.Entity("dotnet_api.Models.Repository", b =>
                 {
-                    b.Navigation("PullRequests");
+                    b.Navigation("AnalysisRuns");
                 });
 
             modelBuilder.Entity("dotnet_api.Models.User", b =>
                 {
-                    b.Navigation("PullRequests");
-
                     b.Navigation("Repositories");
-
-                    b.Navigation("ReviewConfigurations");
                 });
 #pragma warning restore 612, 618
         }

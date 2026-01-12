@@ -1,47 +1,80 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { LogOut } from 'lucide-react';
+import { useAnalysisRuns } from '../hooks/useAnalysis';
+import { Sidebar, AnalysisForm, HistoryView, ResultsView } from '../components/dashboard';
 
 const Dashboard = () => {
     const { logout } = useAuth();
     const navigate = useNavigate();
+    const { refetch: refetchRuns } = useAnalysisRuns();
+
+    // View state
+    const [view, setView] = useState('analyze'); // 'analyze' | 'history' | 'results'
+    const [selectedAnalysisId, setSelectedAnalysisId] = useState(null);
+    const [currentRunId, setCurrentRunId] = useState(null);
+    const [repoUrl, setRepoUrl] = useState('');
+    const [branchName, setBranchName] = useState('');
 
     const handleLogout = () => {
         logout();
         navigate('/login');
     };
 
-    return (
-        <div className="min-h-screen bg-gray-50">
-            <nav className="bg-white shadow-sm">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between h-16 items-center">
-                        <h1 className="text-2xl font-bold text-gray-900">Code Review Dashboard</h1>
-                        <button
-                            onClick={handleLogout}
-                            className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
-                        >
-                            <LogOut className="w-4 h-4" />
-                            Logout
-                        </button>
-                    </div>
-                </div>
-            </nav>
+    const handleAnalysisStart = (runId, repo, branch) => {
+        // Update repo URL and branch name from the form
+        if (repo) setRepoUrl(repo);
+        if (branch) setBranchName(branch);
 
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <div className="bg-white rounded-lg shadow p-6">
-                    <h2 className="text-xl font-semibold text-gray-900 mb-4">Welcome to Code Review Tool</h2>
-                    <p className="text-gray-600">
-                        You are now logged in! This is a placeholder dashboard. Future features will include:
-                    </p>
-                    <ul className="mt-4 space-y-2 text-gray-600">
-                        <li>• View connected repositories</li>
-                        <li>• Monitor pull requests</li>
-                        <li>• Review code analysis results</li>
-                        <li>• Configure review settings</li>
-                    </ul>
-                </div>
+        if (runId) {
+            setCurrentRunId(runId);
+            setView('results');
+            refetchRuns();
+        }
+    };
+
+    const handleSelectAnalysis = (analysisId, repo, branch) => {
+        setSelectedAnalysisId(analysisId);
+        setCurrentRunId(null);
+        // Update repo info for display in results view
+        if (repo) setRepoUrl(repo);
+        if (branch) setBranchName(branch);
+        setView('results');
+    };
+
+    const handleStartNewAnalysis = () => {
+        setView('analyze');
+        setSelectedAnalysisId(null);
+        setCurrentRunId(null);
+    };
+
+    const activeRunId = selectedAnalysisId || currentRunId;
+
+    return (
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-200 font-sans">
+            <Sidebar
+                view={view}
+                setView={setView}
+                onLogout={handleLogout}
+            />
+
+            <main className="md:ml-64 p-4 md:p-8 max-w-7xl mx-auto space-y-6">
+                {view === 'analyze' && (
+                    <AnalysisForm onAnalysisStart={handleAnalysisStart} />
+                )}
+
+                {view === 'history' && (
+                    <HistoryView onSelectAnalysis={handleSelectAnalysis} />
+                )}
+
+                {view === 'results' && (
+                    <ResultsView
+                        runId={activeRunId}
+                        repoUrl={repoUrl}
+                        branchName={branchName}
+                        onStartNewAnalysis={handleStartNewAnalysis}
+                    />
+                )}
             </main>
         </div>
     );

@@ -1,6 +1,52 @@
 @dotnet_api_HostAddress = http://localhost:5116
+@token = your_jwt_token_here
 
-GET {{dotnet_api_HostAddress}}/weatherforecast/
+### Health Check
+GET {{dotnet_api_HostAddress}}/healthz
 Accept: application/json
 
-###
+### Register
+POST {{dotnet_api_HostAddress}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Test User",
+  "email": "test@example.com",
+  "password": "password123"
+}
+
+### Login
+POST {{dotnet_api_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "password123"
+}
+
+### Start Analysis (Async)
+POST {{dotnet_api_HostAddress}}/api/analysis/analyze
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "repoUrl": "https://github.com/owner/repo",
+  "branchName": "main",
+  "githubToken": "optional_github_pat"
+}
+
+### Get Branches
+GET {{dotnet_api_HostAddress}}/api/analysis/branches?repoUrl=https://github.com/owner/repo&githubToken=optional_token
+Authorization: Bearer {{token}}
+
+### Get Analysis Runs
+GET {{dotnet_api_HostAddress}}/api/analysis/runs?limit=20
+Authorization: Bearer {{token}}
+
+### Get Analysis Run by ID
+GET {{dotnet_api_HostAddress}}/api/analysis/runs/1
+Authorization: Bearer {{token}}
+
+### Get Analysis Issues
+GET {{dotnet_api_HostAddress}}/api/analysis/runs/1/issues?severity=major&category=security
+Authorization: Bearer {{token}}

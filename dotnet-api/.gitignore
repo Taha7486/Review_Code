@@ -1,0 +1,31 @@
+# dotenv files
+.env
+.env.local
+.env.*.local
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa]pp_[Bb]uild/
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.code-workspace
+
+# Rider
+.idea/
+
+# User secrets
+**/appsettings.Development.json
+secrets.json

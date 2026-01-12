@@ -49,6 +49,6 @@ public class Repository
     [ForeignKey("UserId")]
     public virtual User User { get; set; } = null!;
 
-    public virtual ICollection<PullRequest> PullRequests { get; set; } = new List<PullRequest>();
+    public virtual ICollection<AnalysisRun> AnalysisRuns { get; set; } = new List<AnalysisRun>();
 }
 

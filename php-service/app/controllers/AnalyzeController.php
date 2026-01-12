@@ -26,14 +26,16 @@ class AnalyzeController
      */
     public function analyzeCode(Request $request, Response $response): Response
     {
+        $correlationId = $request->getAttribute('correlation_id');
         $body = $request->getParsedBody();
         $code = $body['code'] ?? null;
         $filePath = $body['file_path'] ?? 'unknown';
 
         if (!$code) {
             $error = json_encode([
-                'success' => false,
-                'error' => 'Code is required'
+                'code' => 'MISSING_REQUIRED_FIELD',
+                'message' => 'Code content is required for analysis',
+                'correlationId' => $correlationId
             ]);
             $response->getBody()->write($error);
             return $response
@@ -52,8 +54,9 @@ class AnalyzeController
 
         } catch (\Exception $e) {
             $error = json_encode([
-                'success' => false,
-                'error' => 'Analysis failed: ' . $e->getMessage()
+                'code' => 'ANALYSIS_FAILED',
+                'message' => 'Analysis failed: ' . $e->getMessage(),
+                'correlationId' => $correlationId
             ]);
             $response->getBody()->write($error);
             return $response
@@ -69,18 +72,50 @@ class AnalyzeController
      */
     public function analyzeFiles(Request $request, Response $response): Response
     {
+        $correlationId = $request->getAttribute('correlation_id');
         $body = $request->getParsedBody();
         $files = $body['files'] ?? null;
 
+        // Validation limits
+        $maxFiles = 50;
+        $maxFileSize = 1024 * 500; // 500KB
+
         if (!$files || !is_array($files)) {
             $error = json_encode([
-                'success' => false,
-                'error' => 'Files array is required'
+                'code' => 'INVALID_REQUEST',
+                'message' => 'Files array is required',
+                'correlationId' => $correlationId
             ]);
             $response->getBody()->write($error);
             return $response
                 ->withHeader('Content-Type', 'application/json')
                 ->withStatus(400);
+        }
+
+        if (count($files) > $maxFiles) {
+            $error = json_encode([
+                'code' => 'FILE_LIMIT_EXCEEDED',
+                'message' => "Too many files. Maximum allowed is $maxFiles.",
+                'correlationId' => $correlationId
+            ]);
+            $response->getBody()->write($error);
+            return $response
+                ->withHeader('Content-Type', 'application/json')
+                ->withStatus(400);
+        }
+
+        foreach ($files as $file) {
+            if (strlen($file['content'] ?? '') > $maxFileSize) {
+                $error = json_encode([
+                    'code' => 'FILE_SIZE_EXCEEDED',
+                    'message' => "File '{$file['path']}' exceeds size limit of 500KB.",
+                    'correlationId' => $correlationId
+                ]);
+                $response->getBody()->write($error);
+                return $response
+                    ->withHeader('Content-Type', 'application/json')
+                    ->withStatus(400);
+            }
         }
 
         try {
@@ -94,8 +129,9 @@ class AnalyzeController
 
         } catch (\Exception $e) {
             $error = json_encode([
-                'success' => false,
-                'error' => 'Analysis failed: ' . $e->getMessage()
+                'code' => 'ANALYSIS_FAILED',
+                'message' => 'Analysis failed: ' . $e->getMessage(),
+                'correlationId' => $correlationId
             ]);
             $response->getBody()->write($error);
             return $response

@@ -13,11 +13,9 @@ public class ApplicationDbContext : DbContext
     // DbSets for all entities
     public DbSet<User> Users { get; set; }
     public DbSet<Repository> Repositories { get; set; }
-    public DbSet<PullRequest> PullRequests { get; set; }
-    public DbSet<CodeReview> CodeReviews { get; set; }
-    public DbSet<ReviewIssue> ReviewIssues { get; set; }
-    public DbSet<Metric> Metrics { get; set; }
-    public DbSet<ReviewConfiguration> ReviewConfigurations { get; set; }
+    public DbSet<AnalysisRun> AnalysisRuns { get; set; }
+    public DbSet<AnalysisIssue> AnalysisIssues { get; set; }
+    public DbSet<AnalysisMetric> AnalysisMetrics { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -27,7 +25,6 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<User>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.GithubUserId).HasDatabaseName("idx_users_github_user_id");
             entity.Property(e => e.Email).IsRequired().HasMaxLength(255);
             entity.HasIndex(e => e.Email).IsUnique();
         });
@@ -43,63 +40,46 @@ public class ApplicationDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // Configure PullRequest entity
-        modelBuilder.Entity<PullRequest>(entity =>
+        // Configure AnalysisRun entity
+        modelBuilder.Entity<AnalysisRun>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.HasIndex(e => new { e.RepositoryId, e.Number })
+            entity.HasIndex(e => new { e.RepositoryId, e.BranchName })
+                .HasDatabaseName("idx_runs_repo_branch");
+            entity.HasIndex(e => new { e.RepositoryId, e.BaseCommitSha, e.HeadCommitSha })
                 .IsUnique()
-                .HasDatabaseName("idx_pr_repo_number");
+                .HasDatabaseName("idx_runs_repo_commits");
+            entity.HasIndex(e => e.Status)
+                .HasDatabaseName("idx_runs_status");
             entity.HasOne(e => e.Repository)
-                .WithMany(r => r.PullRequests)
+                .WithMany(r => r.AnalysisRuns)
                 .HasForeignKey(e => e.RepositoryId)
                 .OnDelete(DeleteBehavior.Cascade);
-            entity.HasOne(e => e.AuthorUser)
-                .WithMany(u => u.PullRequests)
-                .HasForeignKey(e => e.AuthorUserId)
-                .OnDelete(DeleteBehavior.SetNull);
         });
 
-        // Configure CodeReview entity
-        modelBuilder.Entity<CodeReview>(entity =>
+        // Configure AnalysisIssue entity
+        modelBuilder.Entity<AnalysisIssue>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.PullRequestId).HasDatabaseName("idx_reviews_pr_id");
-            entity.HasOne(e => e.PullRequest)
-                .WithMany(pr => pr.CodeReviews)
-                .HasForeignKey(e => e.PullRequestId)
+            entity.HasIndex(e => e.RunId)
+                .HasDatabaseName("idx_ai_run");
+            entity.HasIndex(e => new { e.RunId, e.Severity })
+                .HasDatabaseName("idx_ai_run_sev");
+            entity.HasOne(e => e.Run)
+                .WithMany(r => r.Issues)
+                .HasForeignKey(e => e.RunId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // Configure ReviewIssue entity
-        modelBuilder.Entity<ReviewIssue>(entity =>
+        // Configure AnalysisMetric entity
+        modelBuilder.Entity<AnalysisMetric>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.ReviewId).HasDatabaseName("idx_issues_review_id");
-            entity.HasOne(e => e.Review)
-                .WithMany(cr => cr.ReviewIssues)
-                .HasForeignKey(e => e.ReviewId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        // Configure Metric entity
-        modelBuilder.Entity<Metric>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.ReviewId).HasDatabaseName("idx_metrics_review_id");
-            entity.HasOne(e => e.Review)
-                .WithMany(cr => cr.Metrics)
-                .HasForeignKey(e => e.ReviewId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        // Configure ReviewConfiguration entity
-        modelBuilder.Entity<ReviewConfiguration>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.HasOne(e => e.User)
-                .WithMany(u => u.ReviewConfigurations)
-                .HasForeignKey(e => e.UserId)
+            entity.HasIndex(e => e.RunId)
+                .HasDatabaseName("idx_am_run");
+            entity.HasOne(e => e.Run)
+                .WithMany(r => r.Metrics)
+                .HasForeignKey(e => e.RunId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

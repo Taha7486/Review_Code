@@ -10,9 +10,6 @@ public class User
     [Column("id")]
     public int Id { get; set; }
 
-    [Column("github_user_id")]
-    public long? GithubUserId { get; set; }
-
     [Required]
     [MaxLength(100)]
     [Column("username")]
@@ -28,10 +25,6 @@ public class User
     [Column("password_hash")]
     public string PasswordHash { get; set; } = string.Empty;
 
-    [MaxLength(500)]
-    [Column("avatar_url")]
-    public string? AvatarUrl { get; set; }
-
     [Required]
     [Column("created_at")]
     public DateTime CreatedAt { get; set; }
@@ -41,7 +34,9 @@ public class User
 
     // Navigation properties
     public virtual ICollection<Repository> Repositories { get; set; } = new List<Repository>();
-    public virtual ICollection<PullRequest> PullRequests { get; set; } = new List<PullRequest>();
-    public virtual ICollection<ReviewConfiguration> ReviewConfigurations { get; set; } = new List<ReviewConfiguration>();
+
+    [Column("github_access_token")]
+    [MaxLength(255)]
+    public string? GithubAccessToken { get; set; }
 }
 

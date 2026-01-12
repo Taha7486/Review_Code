@@ -3,6 +3,7 @@ module.exports = {
   content: [
     "./src/**/*.{js,jsx,ts,tsx}",
   ],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
@@ -18,7 +19,18 @@ module.exports = {
           800: '#075985',
           900: '#0c4a6e',
         },
-      }
+      },
+      spacing: {
+        '18': '4.5rem',
+        '88': '22rem',
+      },
+      typography: {
+        DEFAULT: {
+          css: {
+            maxWidth: 'none',
+          },
+        },
+      },
     },
   },
   plugins: [],

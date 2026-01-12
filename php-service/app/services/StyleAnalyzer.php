@@ -27,9 +27,88 @@ class StyleAnalyzer
         $this->checkIndentation($code, $filePath);
         $this->checkDeepNesting($code, $filePath);
         $this->checkLineLengths($code, $filePath);
-        $this->checkTrailingWhitespace($code, $filePath);
+        $this->checkStrictTypes($code, $filePath);
+        $this->checkUnusedImports($code, $filePath);
 
         return $this->issues;
+    }
+
+    /**
+     * Check for strict types declaration
+     */
+    private function checkStrictTypes(string $code, string $filePath): void
+    {
+        // Only relevant for PHP files
+        if (!str_ends_with($filePath, '.php')) {
+            return;
+        }
+
+        if (!preg_match('/declare\s*\(\s*strict_types\s*=\s*1\s*\)\s*;/i', $code)) {
+            $this->addIssue(
+                $filePath,
+                1,
+                'info',
+                'style',
+                'Missing strict_types declaration.',
+                'MISSING_STRICT_TYPES',
+                'Add declare(strict_types=1); at the top of the file to enforce type safety.'
+            );
+        }
+    }
+
+    /**
+     * Check for unused imports
+     */
+    private function checkUnusedImports(string $code, string $filePath): void
+    {
+        // Find all use statements
+        if (preg_match_all('/^use\s+([\w\\\\]+)(?:\s+as\s+(\w+))?\s*;/m', $code, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
+            foreach ($matches as $match) {
+                $fullClass = $match[1][0];
+                $alias = $match[2][0] ?? null;
+                
+                // Determine the name used in the code (alias or last part of class name)
+                $nameToCheck = $alias;
+                if (!$nameToCheck) {
+                    $parts = explode('\\', $fullClass);
+                    $nameToCheck = end($parts);
+                }
+
+                // Remove the use statement itself from the search area to avoid false positives
+                // matching the declaration itself.
+                // We'll simplisticly search the whole code for occurrences of the name
+                // excluding the exact line of the use statement.
+                
+                // Count occurrences
+                $count = substr_count($code, $nameToCheck);
+                
+                // If count is 1, it might just be the use statement itself. 
+                // Let's be a bit more robust: check if it appears *after* the use block.
+                // Note: This is a simple heuristic.
+                
+                // A better approach: Regex for the name NOT preceded by 'use '
+                // We need to escape the name for regex
+                $safeName = preg_quote($nameToCheck, '/');
+                
+                // Match word boundary to avoid partial matches (e.g. usage of 'User' matching 'UserFactory')
+                // Lookbehind for 'use ' is tricky in PHP PCRE if variable length, so we check unrelated usages.
+                
+                $usageCount = preg_match_all("/(?<!use\s)\b{$safeName}\b/", $code);
+
+                if ($usageCount === 0) {
+                     $lineNumber = $this->getLineNumber($code, $match[0][1]);
+                     $this->addIssue(
+                        $filePath,
+                        $lineNumber,
+                        'minor',
+                        'style',
+                        "Unused import: '$fullClass'.",
+                        'UNUSED_IMPORT',
+                        "Remove the unused 'use' statement."
+                    );
+                }
+            }
+        }
     }
 
     /**

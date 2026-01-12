@@ -12,16 +12,12 @@ USE code_review_tool;
 -- ================================================
 CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    github_user_id BIGINT NULL,
     username VARCHAR(100) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    avatar_url VARCHAR(500),
 
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    updated_at DATETIME(6) NULL ON UPDATE CURRENT_TIMESTAMP(6),
-
-    INDEX idx_users_github_user_id (github_user_id)
+    updated_at DATETIME(6) NULL ON UPDATE CURRENT_TIMESTAMP(6)
 );
 
 -- ================================================
@@ -47,103 +43,71 @@ CREATE TABLE repositories (
 );
 
 -- ================================================
--- TABLE: pull_requests
+-- TABLE: analysis_runs
 -- ================================================
-CREATE TABLE pull_requests (
+CREATE TABLE analysis_runs (
     id INT AUTO_INCREMENT PRIMARY KEY,
     repository_id INT NOT NULL,
-    github_pr_id BIGINT NOT NULL,
-    number INT NOT NULL,
-    title VARCHAR(500) NOT NULL,
-    state VARCHAR(50) NOT NULL,
-    author_user_id INT NULL,
-
-    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    updated_at DATETIME(6) NULL ON UPDATE CURRENT_TIMESTAMP(6),
-
-    UNIQUE INDEX idx_pr_repo_number (repository_id, number),
-
-    CONSTRAINT fk_pr_repo
-        FOREIGN KEY (repository_id) REFERENCES repositories(id)
-        ON DELETE CASCADE,
-
-    CONSTRAINT fk_pr_author
-        FOREIGN KEY (author_user_id) REFERENCES users(id)
-);
-
--- ================================================
--- TABLE: code_reviews
--- ================================================
-CREATE TABLE code_reviews (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    pull_request_id INT NOT NULL,
+    branch_name VARCHAR(255) NOT NULL,
+    default_branch VARCHAR(255) NOT NULL,
+    base_commit_sha VARCHAR(40) NOT NULL,
+    head_commit_sha VARCHAR(40) NOT NULL,
     status VARCHAR(50) NOT NULL,
+    files_analyzed INT NOT NULL DEFAULT 0,
+    average_score DECIMAL(5,2) NOT NULL DEFAULT 0,
+    total_issues INT NOT NULL DEFAULT 0,
     summary TEXT NULL,
-    raw_output JSON NULL,
+    raw_output LONGTEXT NULL,
 
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     completed_at DATETIME(6) NULL,
 
-    INDEX idx_reviews_pr_id (pull_request_id),
+    INDEX idx_runs_repo_branch (repository_id, branch_name),
+    UNIQUE INDEX idx_runs_repo_commits (repository_id, base_commit_sha, head_commit_sha),
+    INDEX idx_runs_status (status),
 
-    CONSTRAINT fk_review_pr
-        FOREIGN KEY (pull_request_id) REFERENCES pull_requests(id)
+    CONSTRAINT fk_runs_repo
+        FOREIGN KEY (repository_id) REFERENCES repositories(id)
         ON DELETE CASCADE
 );
 
 -- ================================================
--- TABLE: review_issues
+-- TABLE: analysis_issues
 -- ================================================
-CREATE TABLE review_issues (
+CREATE TABLE analysis_issues (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    review_id INT NOT NULL,
+    run_id INT NOT NULL,
     file_path VARCHAR(500) NOT NULL,
     line_start INT NULL,
     line_end INT NULL,
-
     severity VARCHAR(50) NOT NULL,
-    type VARCHAR(100) NOT NULL,
+    category VARCHAR(100) NOT NULL,
     message TEXT NOT NULL,
     rule_id VARCHAR(100) NULL,
 
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
 
-    INDEX idx_issues_review_id (review_id),
+    INDEX idx_ai_run (run_id),
+    INDEX idx_ai_run_sev (run_id, severity),
 
-    CONSTRAINT fk_issue_review
-        FOREIGN KEY (review_id) REFERENCES code_reviews(id)
+    CONSTRAINT fk_ai_run
+        FOREIGN KEY (run_id) REFERENCES analysis_runs(id)
         ON DELETE CASCADE
 );
 
 -- ================================================
--- TABLE: metrics
+-- TABLE: analysis_metrics
 -- ================================================
-CREATE TABLE metrics (
+CREATE TABLE analysis_metrics (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    review_id INT NOT NULL,
+    run_id INT NOT NULL,
     metrics_json JSON NOT NULL,
 
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
 
-    INDEX idx_metrics_review_id (review_id),
+    INDEX idx_am_run (run_id),
 
-    CONSTRAINT fk_metrics_review
-        FOREIGN KEY (review_id) REFERENCES code_reviews(id)
-        ON DELETE CASCADE
-);
-
--- ================================================
--- TABLE: review_configurations
--- ================================================
-CREATE TABLE review_configurations (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    config_json JSON NOT NULL,
-
-    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    updated_at DATETIME(6) NULL ON UPDATE CURRENT_TIMESTAMP(6),
-
-    CONSTRAINT fk_config_user
-        FOREIGN KEY (user_id) REFERENCES users(id)
+    CONSTRAINT fk_am_run
+        FOREIGN KEY (run_id) REFERENCES analysis_runs(id)
         ON DELETE CASCADE
 );

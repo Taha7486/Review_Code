@@ -35,7 +35,8 @@ public class AuthService : IAuthService
             Username = registerDto.Name,
             Email = registerDto.Email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(registerDto.Password),
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            GithubAccessToken = registerDto.GithubToken
         };
 
         _context.Users.Add(user);
@@ -71,24 +72,43 @@ public class AuthService : IAuthService
 
     private string CreateToken(User user)
     {
+        var now = DateTime.UtcNow;
+        var expires = now.AddDays(1);
+        
         var claims = new List<Claim>
         {
-            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()), // Numeric user ID for GetUserId()
             new Claim(ClaimTypes.Name, user.Username),
-            new Claim(ClaimTypes.Email, user.Email)
+            new Claim(ClaimTypes.Email, user.Email),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()), // Unique token ID
+            new Claim(JwtRegisteredClaimNames.Iat, ((DateTimeOffset)now).ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64), // Issued at
+            new Claim(JwtRegisteredClaimNames.Exp, ((DateTimeOffset)expires).ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64) // Expiration
         };
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(
-            _configuration.GetSection("JwtSettings:Key").Value ?? "super_secret_key_that_is_long_enough_for_hmac_sha256"));
+        var rawKey = _configuration.GetSection("JwtSettings:Key").Value;
+        var expandedKey = ExpandEnvVars(rawKey) ?? "super_secret_key_that_is_long_enough_for_hmac_sha256";
+
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(expandedKey));
 
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
 
         var token = new JwtSecurityToken(
             claims: claims,
-            expires: DateTime.Now.AddDays(1),
+            expires: expires,
             signingCredentials: creds
         );
 
         return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    private string? ExpandEnvVars(string? value)
+    {
+        if (string.IsNullOrEmpty(value)) return value;
+        return System.Text.RegularExpressions.Regex.Replace(value, @"\$\{(\w+):([^}]*)\}", match =>
+        {
+            var envVar = match.Groups[1].Value;
+            var defaultValue = match.Groups[2].Value;
+            return Environment.GetEnvironmentVariable(envVar) ?? defaultValue;
+        });
     }
 }
