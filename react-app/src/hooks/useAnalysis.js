@@ -38,9 +38,12 @@ export const useAnalysisRun = (runId, options = {}) => {
         refetchOnWindowFocus: false, // Don't refetch on window focus
         refetchOnReconnect: false, // Don't refetch on reconnect
         refetchInterval: (query) => {
+            // 🛑 CRITICAL FIX: Stop polling if error occurred to prevent infinite loop
+            if (query.state.error) return false;
+
             const data = query.state.data;
             // Poll every 2 seconds if status is 'running' or 'queued'
-            if (!data || data.status === 'running' || data.status === 'queued') {
+            if (data && (data.status === 'running' || data.status === 'queued')) {
                 return 2000;
             }
             return false;

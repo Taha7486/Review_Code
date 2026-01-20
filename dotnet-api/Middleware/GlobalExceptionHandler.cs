@@ -49,7 +49,8 @@ public class GlobalExceptionHandler
         {
             statusCode = (int)HttpStatusCode.BadRequest;
             errorCode = ErrorCodes.InvalidRequest;
-            message = exception.Message;
+            // 🛡️ Security: HTML encode the message to prevent Reflected XSS if exception message contains user input
+            message = System.Net.WebUtility.HtmlEncode(exception.Message);
         }
         else if (exception is UnauthorizedAccessException || exception.Message.Contains("Unauthorized"))
         {

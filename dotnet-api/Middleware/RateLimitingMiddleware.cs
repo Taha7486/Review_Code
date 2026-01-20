@@ -54,6 +54,10 @@ public class RateLimitingMiddleware
             LastRequest = now
         });
 
+        bool rateLimitExceeded = false;
+        int retryAfter = 0;
+        string limitMessage = "";
+
         // Thread-safe update
         lock (rateLimitInfo)
         {
@@ -63,51 +67,56 @@ public class RateLimitingMiddleware
             // Check per-minute limit
             if (rateLimitInfo.Requests.Count >= _maxRequestsPerMinute)
             {
-                _logger.LogWarning("Rate limit exceeded for client {ClientId}. Requests in last minute: {Count}", 
-                    clientId, rateLimitInfo.Requests.Count);
-                
-                context.Response.StatusCode = (int)HttpStatusCode.TooManyRequests;
-                context.Response.ContentType = "application/json";
-                
-                var response = new
-                {
-                    error = "Rate limit exceeded",
-                    message = $"Maximum {_maxRequestsPerMinute} requests per minute allowed. Please try again later.",
-                    retryAfter = 60
-                };
-                
-                context.Response.WriteAsync(JsonSerializer.Serialize(response)).Wait();
-                return;
+                rateLimitExceeded = true;
+                retryAfter = 60;
+                limitMessage = $"Maximum {_maxRequestsPerMinute} requests per minute allowed. Please try again later.";
+                _logger.LogWarning("Rate limit exceeded for client {ClientId}. Requests in last minute: {Count}", clientId, rateLimitInfo.Requests.Count);
             }
-
             // Check per-hour limit
-            var requestsInLastHour = rateLimitInfo.Requests.Count(r => (now - r).TotalHours <= 1);
-            if (requestsInLastHour >= _maxRequestsPerHour)
+            else
             {
-                _logger.LogWarning("Hourly rate limit exceeded for client {ClientId}. Requests in last hour: {Count}", 
-                    clientId, requestsInLastHour);
-                
-                context.Response.StatusCode = (int)HttpStatusCode.TooManyRequests;
-                context.Response.ContentType = "application/json";
-                
-                var response = new
+                var requestsInLastHour = rateLimitInfo.Requests.Count(r => (now - r).TotalHours <= 1);
+                if (requestsInLastHour >= _maxRequestsPerHour)
                 {
-                    error = "Rate limit exceeded",
-                    message = $"Maximum {_maxRequestsPerHour} requests per hour allowed. Please try again later.",
-                    retryAfter = 3600
-                };
-                
-                context.Response.WriteAsync(JsonSerializer.Serialize(response)).Wait();
-                return;
+                    rateLimitExceeded = true;
+                    retryAfter = 3600;
+                    limitMessage = $"Maximum {_maxRequestsPerHour} requests per hour allowed. Please try again later.";
+                    _logger.LogWarning("Hourly rate limit exceeded for client {ClientId}. Requests in last hour: {Count}", clientId, requestsInLastHour);
+                }
+                else
+                {
+                    // Record this request only if not exceeded
+                    rateLimitInfo.Requests.Add(now);
+                    rateLimitInfo.LastRequest = now;
+                }
             }
+        } // End lock
 
-            // Record this request
-            rateLimitInfo.Requests.Add(now);
-            rateLimitInfo.LastRequest = now;
+        if (rateLimitExceeded)
+        {
+            await HandleRateLimitExceeded(context, "Rate limit exceeded", limitMessage, retryAfter);
+            return;
         }
 
         await _next(context);
     }
+
+    private async Task HandleRateLimitExceeded(HttpContext context, string error, string message, int retryAfter)
+    {
+        context.Response.StatusCode = (int)HttpStatusCode.TooManyRequests;
+        context.Response.ContentType = "application/json";
+        
+        var response = new
+        {
+            error = error,
+            message = message,
+            retryAfter = retryAfter
+        };
+        
+        await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+    }
+
+
 
     private string GetClientIdentifier(HttpContext context)
     {

@@ -207,33 +207,68 @@ npm start
 
 ## 🚀 Current Development Status
 
-### ✅ Completed (Phase 5 - MVP)
-- Database & Authentication (Phase 2)
-- GitHub Integration via Octokit
-- Service-to-service communication (.NET ↔ PHP)
-- PHP Analysis Engine (Complexity, Security, Style)
-- Branch comparison (vs default branch)
-- React Dashboard with real-time analysis
-- Environment variable security
-- Visual code inspector with syntax highlighting
+### ✅ Completed (Phase 1-6)
+- **Phase 1-2**: Database, Auth, Core Architecture
+- **Phase 3**: Security Hardening (Secrets, Headers, Validation)
+- **Phase 4**: Performance Optimization (Caching, N+1 Fixes)
+- **Phase 5**: Testing Infrastructure (Unit Tests for Critical Paths)
+- **Phase 6**: Documentation (Codebase & API)
 
 ### 🎯 Next Steps
-- Add basic tests (.NET + PHP)
-- Implement GitHub OAuth for private repos
+- Implement GitHub OAuth for private repos (User Access Token flows)
 - Dockerize all services (docker-compose)
 - CI/CD pipeline
 - Deploy to cloud (Azure/AWS)
 
 ---
 
+## 📚 API Documentation
+
+The .NET API enables interactive API documentation via Swagger UI:
+- **Swagger UI**: `http://localhost:5116/swagger` (Interactive testing)
+- **OpenAPI Spec**: `http://localhost:5116/swagger/v1/swagger.json`
+
+### Key Endpoints
+- **POST /api/auth/register**: Register new user
+- **POST /api/auth/login**: Login (Returns JWT)
+- **POST /api/analysis/start**: Start async analysis for a branch
+- **GET /api/analysis/runs**: List past analysis runs
+- **GET /api/analysis/runs/{id}**: Get full report (Issues, Metrics, Files)
+
+---
+
+## 🧪 Testing
+
+### Running Tests
+```bash
+cd dotnet-api/tests
+dotnet test
+```
+
+### Test Coverage
+- **Unit Tests**: 
+  - `FileFilterTests`: Verifies extension/directory filtering logic
+  - `GitHubClientServiceTests`: Verifies Repo URL parsing and Auth logic
+- **Integration Tests**:
+  - `AnalysisFlowIntegrationTests`: Verifies Health Checks, Auth Flow, and Analysis Workflow (End-to-End)
+
+---
+
+### Infrastructure & Monitoring
+- **Health Checks**:
+  - API: `http://localhost:5116/health` (Checks DB connectivity)
+  - PHP: `http://localhost:8000/health` (Checks service status & memory)
+- **Configuration**:
+  - Strict startup validation for environment variables (DB, JWT, Service URLs)
+  - Validation of safe defaults vs production requirements
+- **Security**:
+  - Token redaction in logs
+  - Input validation for code analysis (UTF-8 enforcement)
+  - JWT key strength enforcement (>32 bytes)
+
 ## 🎯 Future Phases
 
-- Phase 3: GitHub OAuth & Webhooks
-- Phase 4: Code Fetching via GitHub API
-- Phase 5-6: PHP Analysis Engine
-- Phase 7: End-to-End Integration
-- Phase 8: React Dashboard UI
-- Phase 9: CI/CD Pipeline
-- Phase 10: Kubernetes Deployment
-- Phase 11: Monitoring & Observability
-- Phase 12: Documentation & Polish
+- Phase 7: Containerization (Docker)
+- Phase 8: Cloud Deployment
+- Phase 9: Monitoring & Observability
+- Phase 10: AI-enhanced Analysis (LLM Integration)

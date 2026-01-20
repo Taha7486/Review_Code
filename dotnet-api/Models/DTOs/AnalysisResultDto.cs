@@ -25,13 +25,11 @@ public class IssueDto
     public int? LineEnd { get; set; }
     public string Message { get; set; } = string.Empty;
     public string Severity { get; set; } = string.Empty; // e.g., "critical", "major", "minor", "info"
-    public string? RuleId { get; set; }
     public string Category { get; set; } = string.Empty; // e.g., "complexity", "security", "style"
     
     // Keep old properties for backward compatibility with PHP service response
     public string File { get; set; } = string.Empty;
     public int Line { get; set; }
-    public string Rule { get; set; } = string.Empty;
 }
 
 public class FileMetricsDto

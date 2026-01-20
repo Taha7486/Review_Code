@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5116/api';
+const isDev = process.env.NODE_ENV === 'development';
+const API_BASE_URL = process.env.REACT_APP_API_URL || (isDev ? 'http://localhost:5116/api' : '/api');
 
 const api = axios.create({
     baseURL: API_BASE_URL,
@@ -96,8 +97,9 @@ api.interceptors.response.use(
 
         // Log error for debugging (in development)
         if (process.env.NODE_ENV === 'development') {
+            const redactedUrl = error.config?.url?.replace(/githubToken=[^&]*/, 'githubToken=[REDACTED]');
             console.error('API Error:', {
-                url: error.config?.url,
+                url: redactedUrl,
                 method: error.config?.method,
                 status,
                 code: errorCode,

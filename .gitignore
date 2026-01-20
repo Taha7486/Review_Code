@@ -1,35 +1,39 @@
-# General
-.DS_Store
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-.env.production
-.agent/
+# Environment variables
+.env
+.env.*
+!.env.example
 
-# Node
+# Dependencies
 node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+vendor/
+
+# .NET Build results
+[Bb]in/
+[Oo]bj/
+
+# React Build results
 build/
 dist/
 
-# Dotnet
-[Bb]in/
-[Oo]bj/
-.vs/
-*.user
-*.suo
-*.sln.docstates
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
 
-# PHP
-vendor/
-composer.lock
-.phpunit.result.cache
+# OS files
+.DS_Store
+Thumbs.db
 
-# Environment Variables (Secrets)
-.env
-.env.backup
-.env.production
-*.secret
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test results
+coverage/
+TestResults/
+
+# Docker
+docker-compose.override.yml

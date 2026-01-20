@@ -108,10 +108,6 @@ public class AnalysisIssue
     [Column("message", TypeName = "TEXT")]
     public string Message { get; set; } = string.Empty;
 
-    [MaxLength(100)]
-    [Column("rule_id")]
-    public string? RuleId { get; set; }
-
     [Required]
     [Column("created_at")]
     public DateTime CreatedAt { get; set; }

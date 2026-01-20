@@ -77,7 +77,8 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
     options.UseMySql(
         ExpandEnvVars(builder.Configuration.GetConnectionString("DefaultConnection")),
-        new MySqlServerVersion(new Version(8, 0, 0))
+        new MySqlServerVersion(new Version(8, 0, 0)),
+        mysqlOptions => mysqlOptions.CommandTimeout(180) // ⏳ Increase timeout to 3 minutes for large saves
     );
     
     // CRITICAL FIX: Disable change tracking by default to prevent race conditions
@@ -108,6 +109,9 @@ builder.Services.AddHostedService<BackgroundAnalysisProcessor>(sp => sp.GetRequi
 // Register Metrics Service
 builder.Services.AddSingleton<IMetricsService, MetricsService>();
 
+// Register Health Checks
+builder.Services.AddHealthChecks();
+
 // Configure JWT Authentication
 var jwtKey = ExpandEnvVars(builder.Configuration.GetSection("JwtSettings:Key").Value);
 if (string.IsNullOrEmpty(jwtKey) || jwtKey == "change_me_in_production" || jwtKey == "super_secret_key_that_is_long_enough_for_hmac_sha256")
@@ -136,8 +140,47 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+// Configure Swagger/OpenAPI documentation
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    {
+        Title = "Code Review Automation API",
+        Version = "v1",
+        Description = "RESTful API for automated code review and analysis. Analyzes GitHub repositories for code quality, security vulnerabilities, and best practices.",
+        Contact = new Microsoft.OpenApi.Models.OpenApiContact
+        {
+            Name = "Code Review Tool",
+            Url = new Uri("https://github.com/yourusername/code-review-tool")
+        }
+    });
+
+    // Add JWT Authentication support to Swagger UI
+    options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and then your token in the text input below. Example: 'Bearer eyJhbGciOiJIUzI1NiIs...'",
+        Name = "Authorization",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+
+    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
 var app = builder.Build();
 
@@ -153,21 +196,58 @@ else if (app.Environment.IsDevelopment())
 }
 
 // Configure the HTTP request pipeline.
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
+    context.Response.Headers.Append("X-Frame-Options", "DENY");
+    context.Response.Headers.Append("X-XSS-Protection", "1; mode=block");
+    context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
+    await next();
+});
+
+// Run Startup Validation
+try 
+{
+    dotnet_api.Configuration.StartupConfigValidation.Validate(app.Configuration, logger);
+}
+catch (Exception ex)
+{
+    // Ensure we log and stop if validation fails
+    logger.LogCritical(ex, "Application start-up failed due to configuration errors.");
+    throw;
+}
+
 app.UseMiddleware<dotnet_api.Middleware.CorrelationIdMiddleware>();
 app.UseMiddleware<dotnet_api.Middleware.RequestLoggingMiddleware>();
 app.UseMiddleware<dotnet_api.Middleware.RateLimitingMiddleware>();
 app.UseMiddleware<dotnet_api.Middleware.GlobalExceptionHandler>();
+
+// Enable Swagger UI (accessible at /swagger)
+if (app.Environment.IsDevelopment() || app.Environment.EnvironmentName == "Staging")
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "Code Review API v1");
+        options.RoutePrefix = "swagger"; // Access Swagger UI at /swagger
+        options.DocumentTitle = "Code Review API Documentation";
+        options.DefaultModelsExpandDepth(2);
+        options.DefaultModelExpandDepth(2);
+        options.DisplayRequestDuration();
+        options.EnableTryItOutByDefault();
+    });
+    
+    logger.LogInformation("📚 Swagger UI available at: http://localhost:5116/swagger");
+}
+
 app.MapOpenApi();
-app.UseCors("AllowReactApp"); // Enable CORS
-app.UseAuthentication(); // Add this
-app.UseAuthorization();  // Add this
+app.UseCors("AllowReactApp"); 
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
-
-//app.UseHttpsRedirection();
-
-
-
+app.MapHealthChecks("/health"); // 🏥 Add Health Check Endpoint
 
 app.Run();
 
-
+// Make the Program class accessible to integration tests
+public partial class Program { }

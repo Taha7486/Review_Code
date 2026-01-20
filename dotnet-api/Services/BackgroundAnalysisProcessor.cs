@@ -74,23 +74,33 @@ public class BackgroundAnalysisProcessor : BackgroundService
         }
     }
 
-    private async Task ProcessAnalysisJobAsync(AnalysisJob job, CancellationToken cancellationToken)
+    private async Task ProcessAnalysisJobAsync(AnalysisJob job, CancellationToken stoppingToken)
     {
         using var scope = _serviceProvider.CreateScope();
         var analysisService = scope.ServiceProvider.GetRequiredService<IAnalysisService>();
         
         _logger.LogDebug("Processing analysis job for run {RunId}", job.RunId);
         
+        // Timeout after 10 minutes to prevent zombie processes
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+        cts.CancelAfter(TimeSpan.FromMinutes(10));
+        
         try
         {
             // Process the analysis (this will update the run status)
-            await analysisService.ProcessAnalysisAsync(job.RunId, job.Request, job.UserId, job.CorrelationId, cancellationToken);
+            await analysisService.ProcessAnalysisAsync(job.RunId, job.Request, job.UserId, job.CorrelationId, cts.Token);
             
             _logger.LogInformation("Completed analysis job for run {RunId}", job.RunId);
         }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested && !stoppingToken.IsCancellationRequested)
+        {
+            _logger.LogError("Analysis job for run {RunId} timed out after 10 minutes", job.RunId);
+            // Mark as failed in DB handled by caller or we can do it here if we want specific timeout message
+            throw new TimeoutException("Analysis timed out");
+        }
         catch (OperationCanceledException)
         {
-            _logger.LogWarning("Analysis job for run {RunId} was cancelled", job.RunId);
+            _logger.LogWarning("Analysis job for run {RunId} was cancelled by host shutdown", job.RunId);
             throw;
         }
         catch (Exception ex)

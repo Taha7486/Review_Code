@@ -89,6 +89,23 @@ const AnalysisForm = ({ onAnalysisStart }) => {
                 </p>
             </div>
 
+            {/* Language Support Disclaimer */}
+            <div className="mb-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                    <Info className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                        <h3 className="text-sm font-semibold text-amber-900 dark:text-amber-300 mb-1">
+                            Language Support Notice
+                        </h3>
+                        <p className="text-sm text-amber-800 dark:text-amber-400">
+                            Currently, this tool provides <strong>comprehensive code analysis for PHP</strong> only. 
+                            JavaScript and CSS files are accepted but receive limited analysis. 
+                            Support for additional languages (Python, TypeScript, Java, C#, etc.) is coming soon.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-8">
                 <form onSubmit={handleAnalyze} className="space-y-6">
                     <div className="space-y-2">

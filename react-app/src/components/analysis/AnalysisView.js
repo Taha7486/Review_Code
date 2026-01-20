@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import AnalysisHeroCard from './AnalysisHeroCard';
 import FilterBar from './FilterBar';
-import FileListSidebar from './FileListSidebar';
+import FileTree from './FileTree';
 import CodeInspector from './CodeInspector';
 
 const AnalysisView = ({ result, repoUrl, branchName, score, extractRepoName }) => {
@@ -118,7 +118,7 @@ const AnalysisView = ({ result, repoUrl, branchName, score, extractRepoName }) =
 
             {/* File List + Code Inspector Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-                <FileListSidebar
+                <FileTree
                     uniqueFiles={uniqueFiles}
                     filteredIssues={filteredIssues}
                     selectedFile={selectedFile}

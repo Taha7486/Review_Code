@@ -5,10 +5,16 @@ use Slim\Factory\AppFactory;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Psr7\Response;
 
-// Production settings
+// Production and Scaling settings
 $isProduction = (getenv('APP_ENV') === 'production');
 ini_set('display_errors', $isProduction ? '0' : '1');
 ini_set('log_errors', '1');
+
+// 🚀 Scale for Full Project Snapshots
+ini_set('memory_limit', '256M');       // Allow processing larger file sets
+ini_set('max_execution_time', '600');  // 10 minutes for deep analysis
+ini_set('post_max_size', '32M');       // Support larger JSON payloads
+ini_set('upload_max_filesize', '32M');
 
 $app = AppFactory::create();
 
@@ -16,6 +22,11 @@ $app->addBodyParsingMiddleware();
 
 // 🔐 Authentication Middleware (Shared Secret)
 $app->add(function (Request $request, $handler) {
+    // Skip Health Check
+    if (strpos($request->getUri()->getPath(), '/health') !== false) {
+        return $handler->handle($request);
+    }
+
     $expectedSecret = getenv('INTERNAL_SERVICE_SECRET');
 
     // In development or if no secret is set, we bypass (optional, but safer to require it)
@@ -30,9 +41,9 @@ $app->add(function (Request $request, $handler) {
         if ($providedSecret !== $expectedSecret) {
             $response = new Response();
             $response->getBody()->write(json_encode([
-                'success' => false,
-                'error' => 'Unauthorized: Invalid internal service token',
-                'code' => 'UNAUTHORIZED'
+                'code' => 'UNAUTHORIZED',
+                'message' => 'Unauthorized: Invalid internal service token',
+                'correlationId' => $request->getAttribute('correlation_id') // Might be null here, checking below
             ]));
             return $response
                 ->withHeader('Content-Type', 'application/json')

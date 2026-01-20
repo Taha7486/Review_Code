@@ -27,7 +27,14 @@ public class MetricsController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = ex.Message });
+            var correlationId = HttpContext.Items["CorrelationId"]?.ToString();
+            return StatusCode(500, new dotnet_api.Models.DTOs.ErrorResponseDto
+            {
+                Code = dotnet_api.Models.DTOs.ErrorCodes.InternalServerError,
+                Message = "An error occurred while fetching metrics.",
+                Details = ex.Message,
+                CorrelationId = correlationId
+            });
         }
     }
 }

@@ -35,7 +35,7 @@ const ResultsView = ({ runId, repoUrl, branchName, onStartNewAnalysis }) => {
     useEffect(() => {
         if (runId && analysisRun) {
             if (process.env.NODE_ENV === 'development') {
-                console.log(`[ResultsView] Run ${runId} status changed to: ${analysisRun.status}`);
+
             }
 
             if (analysisRun.status === 'completed' || analysisRun.status === 'failed') {
@@ -53,18 +53,6 @@ const ResultsView = ({ runId, repoUrl, branchName, onStartNewAnalysis }) => {
     }, [runId, analysisRun, queryError, queryClient]);
 
     const score = result ? (result.averageScore || extractScore(result.summary)) : 0;
-
-    // Detailed debugging (Dev only)
-    if (process.env.NODE_ENV === 'development') {
-        console.log('ResultsView Render State:', {
-            runId,
-            hasAnalysisRun: !!analysisRun,
-            analysisRunStatus: analysisRun?.status,
-            loadingDetails,
-            hasResult: !!result,
-            hasQueryError: !!queryError
-        });
-    }
 
     // Show loading only if we're actually loading OR if status is 'running'
     const isRunning = analysisRun?.status === 'running';
@@ -92,7 +80,7 @@ const ResultsView = ({ runId, repoUrl, branchName, onStartNewAnalysis }) => {
 
     if (result) {
         if (process.env.NODE_ENV === 'development') {
-            console.log('Rendering AnalysisView with result');
+            // Rendering AnalysisView with result
         }
         return (
             <AnalysisView

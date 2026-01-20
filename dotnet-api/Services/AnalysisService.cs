@@ -62,6 +62,13 @@ public class AnalysisService : IAnalysisService
         _metricsService = metricsService;
     }
 
+    /// <summary>
+    /// Analyzes a specific branch of a GitHub repository.
+    /// Manages the full lifecycle: Repo creation, File fetching, PHP Service analysis, and Result storage.
+    /// </summary>
+    /// <param name="request">DTO containing repo URL and branch details</param>
+    /// <param name="userId">ID of the authenticated user</param>
+    /// <returns>Analysis results including metrics and issues</returns>
     public async Task<AnalysisResultDto> AnalyzeBranchAsync(AnalyzeBranchDto request, int userId)
     {
         var correlationId = Guid.NewGuid().ToString("N")[..8];
@@ -103,6 +110,8 @@ public class AnalysisService : IAnalysisService
 
             // Check for existing run (idempotency)
             var existingRun = await _context.AnalysisRuns
+                .Include(r => r.Repository)
+                .Include(r => r.Issues)
                 .FirstOrDefaultAsync(r => r.RepositoryId == repository.Id 
                     && r.BaseCommitSha == baseCommitSha 
                     && r.HeadCommitSha == headCommitSha);
@@ -132,9 +141,9 @@ public class AnalysisService : IAnalysisService
             await _context.SaveChangesAsync();
             _logger.LogInformation("[{CorrelationId}] Created analysis run: {RunId}", correlationId, run.Id);
 
-            // Fetch code files
+            // Fetch code files using the resolved HeadCommitSha to ensure consistency
             var branchFiles = await _githubFileService.GetCodeFromBranchAsync(
-                owner, repoName, request.BranchName, defaultBranch, correlationId, authenticatedClient);
+                owner, repoName, headCommitSha, defaultBranch, correlationId, authenticatedClient);
 
             if (branchFiles.Count == 0)
             {
@@ -256,6 +265,10 @@ public class AnalysisService : IAnalysisService
         }
     }
 
+    /// <summary>
+    /// Initiates an asynchronous analysis job.
+    /// Returns immediately with the Run ID after initial validation and record creation.
+    /// </summary>
     public async Task<int> StartAnalysisAsync(AnalyzeBranchDto request, int userId, string correlationId)
     {
         _logger.LogInformation(
@@ -384,7 +397,7 @@ public class AnalysisService : IAnalysisService
                 correlationId, runId, request.BranchName, run.DefaultBranch, owner, repoName);
             
             var branchFiles = await _githubFileService.GetCodeFromBranchAsync(
-                owner, repoName, request.BranchName, run.DefaultBranch, correlationId, authenticatedClient);
+                owner, repoName, run.HeadCommitSha, run.DefaultBranch, correlationId, authenticatedClient);
 
             _logger.LogInformation("[{CorrelationId}] File fetch completed. Found {FileCount} files for analysis", correlationId, branchFiles.Count);
 
@@ -425,28 +438,37 @@ public class AnalysisService : IAnalysisService
                 throw; // Re-throw to ensure the transaction fails properly
             }
 
-            // Update run status
-            _logger.LogInformation("[{CorrelationId}] Updating run {RunId} status to completed", correlationId, run.Id);
-            run.Status = "completed";
-            run.FilesAnalyzed = phpResult.FilesAnalyzed;
-            run.AverageScore = (decimal)averageScore;
-            run.TotalIssues = totalIssues;
-            run.Summary = $"Analyzed {phpResult.FilesAnalyzed} files. Score: {averageScore:F2}/100. Issues: {totalIssues}";
-            
-            // Compress RawOutput to reduce storage
             var rawOutputJson = JsonSerializer.Serialize(phpResult);
-            run.RawOutput = _dataSanitizer.CompressString(rawOutputJson);
-            
-            run.CompletedAt = DateTime.UtcNow;
+            var compressedOutput = _dataSanitizer.CompressString(rawOutputJson);
             
             try
             {
-                // FORCE TRACKING: Explicitly tell EF Core this entity has changed
-                // This ensures the UPDATE command is sent even if the tracker lost track of the status change
-                _context.Entry(run).State = EntityState.Modified;
-                
-                await _context.SaveChangesAsync(cancellationToken);
-                _logger.LogInformation("[{CorrelationId}] Successfully updated run {RunId} status to completed. Verified in tracking state.", correlationId, run.Id);
+                // Re-fetch with tracking to ensure safe update
+                var runToUpdate = await _context.AnalysisRuns
+                    .AsTracking()
+                    .FirstOrDefaultAsync(r => r.Id == run.Id, cancellationToken);
+
+                if (runToUpdate != null)
+                {
+                    runToUpdate.Status = "completed";
+                    runToUpdate.FilesAnalyzed = phpResult.FilesAnalyzed;
+                    runToUpdate.AverageScore = (decimal)averageScore;
+                    runToUpdate.TotalIssues = totalIssues;
+                    runToUpdate.Summary = $"Analyzed {phpResult.FilesAnalyzed} files. Score: {averageScore:F2}/100. Issues: {totalIssues}";
+                    runToUpdate.RawOutput = compressedOutput;
+                    runToUpdate.CompletedAt = DateTime.UtcNow;
+
+                    await _context.SaveChangesAsync(cancellationToken);
+                    _logger.LogInformation("[{CorrelationId}] Successfully updated run {RunId} status to completed.", correlationId, run.Id);
+                    
+                    // Update local object for return value (though ProcessAnalysisAsync returns Task, run object might be used later? No, it returns void Task)
+                    // But we should update the 'run' reference just in case logic continued (it doesn't, it ends shortly)
+                    run = runToUpdate;
+                }
+                else
+                {
+                     _logger.LogError("[{CorrelationId}] Failed to fetch run {RunId} for final update - record disappeared.", correlationId, run.Id);
+                }
             }
             catch (Exception ex)
             {
@@ -590,7 +612,7 @@ public class AnalysisService : IAnalysisService
         var fileContents = new Dictionary<string, string>();
         var fileMetrics = new Dictionary<string, FileMetricsDto>();
 
-        // Get file metrics from AnalysisMetrics - also use AsNoTracking()
+        // Get file metrics and contents from AnalysisMetrics
         var metrics = await _context.AnalysisMetrics
             .AsNoTracking()
             .Where(m => m.RunId == runId)
@@ -600,54 +622,31 @@ public class AnalysisService : IAnalysisService
         {
             try
             {
-                fileMetrics = JsonSerializer.Deserialize<Dictionary<string, FileMetricsDto>>(metrics.MetricsJson) ?? new Dictionary<string, FileMetricsDto>();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to deserialize file metrics for run {RunId}", runId);
-            }
-        }
+                using var doc = JsonDocument.Parse(metrics.MetricsJson);
+                var root = doc.RootElement;
 
-        // Fetch file contents from GitHub if available
-        if (!string.IsNullOrEmpty(run.Repository.CloneUrl) && !string.IsNullOrEmpty(run.HeadCommitSha) && run.Issues.Any())
-        {
-            try
-            {
-                var (owner, repoName) = _githubClientService.ParseRepoUrl(run.Repository.CloneUrl);
-                var client = _githubClientService.GetAuthenticatedClient(null);
-
-                // Get distinct file paths to fetch
-                var filesToFetch = run.Issues.Select(i => i.FilePath).Distinct().ToList();
-                _logger.LogDebug("[{RunId}] Parallel fetching contents for {Count} files", runId, filesToFetch.Count);
-
-                var tasks = filesToFetch.Select(async filePath =>
+                // Handle both new combined structure and old metrics-only structure for backward compatibility
+                if (root.TryGetProperty("file_metrics", out var metricsElement))
                 {
-                    try
-                    {
-                        var contents = await client.Repository.Content.GetAllContentsByRef(
-                            owner, repoName, filePath, run.HeadCommitSha);
-                        
-                        if (contents.Count > 0)
-                        {
-                            return new { Path = filePath, Content = contents[0].Content };
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning("[{RunId}] Failed to fetch content for {FilePath}: {Message}", runId, filePath, ex.Message);
-                    }
-                    return null;
-                });
-
-                var results = await Task.WhenAll(tasks);
-                foreach (var res in results.Where(r => r != null))
+                    fileMetrics = JsonSerializer.Deserialize<Dictionary<string, FileMetricsDto>>(metricsElement.GetRawText()) 
+                                  ?? new Dictionary<string, FileMetricsDto>();
+                }
+                else
                 {
-                    fileContents[res!.Path] = res.Content;
+                    // Fallback for old records
+                    fileMetrics = JsonSerializer.Deserialize<Dictionary<string, FileMetricsDto>>(metrics.MetricsJson) 
+                                  ?? new Dictionary<string, FileMetricsDto>();
+                }
+
+                if (root.TryGetProperty("file_contents", out var contentsElement))
+                {
+                    fileContents = JsonSerializer.Deserialize<Dictionary<string, string>>(contentsElement.GetRawText()) 
+                                   ?? new Dictionary<string, string>();
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to fetch file contents for run {RunId}", runId);
+                _logger.LogWarning(ex, "Failed to deserialize metrics/contents for run {RunId}", runId);
             }
         }
 
@@ -673,9 +672,7 @@ public class AnalysisService : IAnalysisService
                 Line = i.LineStart ?? 0, // Backward compatibility
                 Severity = i.Severity,
                 Category = i.Category,
-                Message = i.Message,
-                RuleId = i.RuleId,
-                Rule = i.RuleId ?? string.Empty // Backward compatibility
+                Message = i.Message
             }).ToList(),
             FileContents = fileContents,
             FileMetrics = fileMetrics
@@ -720,9 +717,7 @@ public class AnalysisService : IAnalysisService
             Line = i.LineStart ?? 0, // Backward compatibility
             Severity = i.Severity,
             Category = i.Category,
-            Message = i.Message,
-            RuleId = i.RuleId,
-            Rule = i.RuleId ?? string.Empty // Backward compatibility
+            Message = i.Message
         }).ToList();
     }
 
@@ -732,9 +727,11 @@ public class AnalysisService : IAnalysisService
 
         var issuesBySeverity = new Dictionary<string, int>();
         var fileMetrics = new Dictionary<string, FileMetricsDto>();
+        var fileContents = new Dictionary<string, string>();
 
-        // Get file metrics from AnalysisMetrics
+        // Get file metrics and contents from AnalysisMetrics
         var metrics = await _context.AnalysisMetrics
+            .AsNoTracking()
             .Where(m => m.RunId == run.Id)
             .FirstOrDefaultAsync();
 
@@ -742,11 +739,24 @@ public class AnalysisService : IAnalysisService
         {
             try
             {
-                fileMetrics = JsonSerializer.Deserialize<Dictionary<string, FileMetricsDto>>(metrics.MetricsJson) ?? new Dictionary<string, FileMetricsDto>();
+                using var doc = JsonDocument.Parse(metrics.MetricsJson);
+                var root = doc.RootElement;
+
+                if (root.TryGetProperty("file_metrics", out var metricsElement))
+                {
+                    fileMetrics = JsonSerializer.Deserialize<Dictionary<string, FileMetricsDto>>(metricsElement.GetRawText()) 
+                                  ?? new Dictionary<string, FileMetricsDto>();
+                }
+                
+                if (root.TryGetProperty("file_contents", out var contentsElement))
+                {
+                    fileContents = JsonSerializer.Deserialize<Dictionary<string, string>>(contentsElement.GetRawText()) 
+                                   ?? new Dictionary<string, string>();
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to deserialize file metrics for run {RunId}", run.Id);
+                _logger.LogWarning(ex, "Failed to deserialize metrics/contents for cached run {RunId}", run.Id);
             }
         }
 
@@ -761,9 +771,7 @@ public class AnalysisService : IAnalysisService
             Line = i.LineStart ?? 0,
             Severity = i.Severity,
             Category = i.Category,
-            Message = i.Message,
-            RuleId = i.RuleId,
-            Rule = i.RuleId ?? string.Empty
+            Message = i.Message
         }).ToList();
 
         return new AnalysisResultDto
@@ -777,6 +785,7 @@ public class AnalysisService : IAnalysisService
             TotalIssues = run.TotalIssues,
             IssuesBySeverity = issuesBySeverity,
             FileMetrics = fileMetrics,
+            FileContents = fileContents,
             Issues = issues,
             AnalyzedAt = run.CompletedAt ?? run.CreatedAt
         };

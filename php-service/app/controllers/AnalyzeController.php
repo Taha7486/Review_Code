@@ -43,6 +43,19 @@ class AnalyzeController
                 ->withStatus(400);
         }
 
+        // 🛡️ SECURITY: Ensure content is valid UTF-8 to prevent binary injection
+        if (!mb_check_encoding($code, 'UTF-8')) {
+            $error = json_encode([
+                'code' => 'INVALID_ENCODING',
+                'message' => 'Code content must be valid UTF-8 text',
+                'correlationId' => $correlationId
+            ]);
+            $response->getBody()->write($error);
+            return $response
+                ->withHeader('Content-Type', 'application/json')
+                ->withStatus(400);
+        }
+
         try {
             // Analyze the code
             $result = $this->analysisService->analyzeCode($code, $filePath);
@@ -109,6 +122,18 @@ class AnalyzeController
                 $error = json_encode([
                     'code' => 'FILE_SIZE_EXCEEDED',
                     'message' => "File '{$file['path']}' exceeds size limit of 500KB.",
+                    'correlationId' => $correlationId
+                ]);
+                $response->getBody()->write($error);
+                return $response
+                    ->withHeader('Content-Type', 'application/json')
+                    ->withStatus(400);
+            }
+
+            if (!mb_check_encoding($file['content'] ?? '', 'UTF-8')) {
+                $error = json_encode([
+                    'code' => 'INVALID_ENCODING',
+                    'message' => "File '{$file['path']}' contains invalid characters (must be UTF-8).",
                     'correlationId' => $correlationId
                 ]);
                 $response->getBody()->write($error);

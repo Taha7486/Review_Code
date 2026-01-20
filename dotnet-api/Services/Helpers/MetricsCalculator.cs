@@ -98,7 +98,7 @@ public class MetricsCalculator : IMetricsCalculator
         string? headCommitSha,
         string correlationId)
     {
-        _logger.LogInformation("[{CorrelationId}] Saving {IssueCount} issues for run {RunId}",
+        _logger.LogInformation("[{CorrelationId}] Saving {IssueCount} issues and full project snapshot for run {RunId}",
             correlationId, phpResult.TotalIssues, runId);
 
         var issues = new List<AnalysisIssue>();
@@ -120,7 +120,6 @@ public class MetricsCalculator : IMetricsCalculator
                     Severity = issue.Severity ?? "info",
                     Category = issue.Category ?? InferCategory(issue.Message),
                     Message = issue.Message,
-                    RuleId = null,
                     CreatedAt = DateTime.UtcNow
                 });
             }
@@ -131,9 +130,17 @@ public class MetricsCalculator : IMetricsCalculator
             await _context.AnalysisIssues.AddRangeAsync(issues);
         }
 
-        // Save metrics
+        // 🚀 Prepare the metrics and file snapshot
         var fileMetrics = CalculateFileMetrics(phpResult.Results);
-        var metricsJson = JsonSerializer.Serialize(fileMetrics);
+        var fileContents = files.ToDictionary(f => f.FileName, f => f.Content);
+
+        var combinedPayload = new
+        {
+            file_metrics = fileMetrics,
+            file_contents = fileContents
+        };
+
+        var metricsJson = JsonSerializer.Serialize(combinedPayload);
 
         var metrics = new AnalysisMetric
         {
@@ -145,8 +152,8 @@ public class MetricsCalculator : IMetricsCalculator
         await _context.AnalysisMetrics.AddAsync(metrics);
         await _context.SaveChangesAsync();
 
-        _logger.LogDebug("[{CorrelationId}] Saved {IssueCount} issues and metrics for run {RunId}",
-            correlationId, issues.Count, runId);
+        _logger.LogDebug("[{CorrelationId}] Saved {IssueCount} issues and persisted {FileCount} files for run {RunId}",
+            correlationId, issues.Count, files.Count, runId);
     }
 
     private string InferCategory(string message)

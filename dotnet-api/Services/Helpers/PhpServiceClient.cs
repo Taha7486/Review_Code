@@ -61,6 +61,7 @@ public class PhpServiceClient : IPhpServiceClient
         var jsonContent = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
 
         var client = _httpClientFactory.CreateClient();
+        client.Timeout = TimeSpan.FromMinutes(10); // Match PHP's 600s limit & Background Processor
         client.DefaultRequestHeaders.Add("X-Correlation-Id", correlationId);
         
         // Add shared secret for service-to-service authentication
@@ -157,7 +158,7 @@ public class PhpIssue
     [System.Text.Json.Serialization.JsonPropertyName("lineNumber")]
     public int LineNumber { get; set; }
     
-    // Fallback
+    [System.Text.Json.Serialization.JsonPropertyName("line")]
     public int Line { get; set; }
     
     public string Severity { get; set; } = string.Empty;
