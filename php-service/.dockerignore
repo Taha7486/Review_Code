@@ -1,0 +1,21 @@
+# Dependencies
+vendor/
+
+# IDE
+.vscode/
+.idea/
+
+# Git
+.git/
+.gitignore
+README.md
+
+# Environment
+.env
+.env.example
+
+# Tests
+tests/
+
+# Composer
+composer.phar

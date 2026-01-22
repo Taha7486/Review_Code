@@ -177,7 +177,8 @@ public class AnalysisController : ControllerBase
 
         try
         {
-            var branches = await _analysisService.GetRemoteBranchesAsync(repoUrl, githubToken);
+            var userId = GetUserId();
+            var branches = await _analysisService.GetRemoteBranchesAsync(repoUrl, githubToken, userId);
             return Ok(branches);
         }
         catch (Octokit.RateLimitExceededException ex)

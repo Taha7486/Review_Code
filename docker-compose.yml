@@ -1,0 +1,102 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: code-review-db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./DB_Schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - code-review-network
+
+  php-service:
+    build:
+      context: ./php-service
+      dockerfile: Dockerfile
+    container_name: code-review-php
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - PHP_MEMORY_LIMIT=512M
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - code-review-network
+    restart: unless-stopped
+
+  dotnet-api:
+    build:
+      context: ./dotnet-api
+      dockerfile: Dockerfile
+    container_name: code-review-api
+    depends_on:
+      mysql:
+        condition: service_healthy
+      php-service:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_URLS=http://+:5116
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_NAME=${DB_NAME}
+      - DB_USER=root
+      - DB_PASSWORD=${DB_PASSWORD}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - PHP_ANALYSIS_API_URL=${PHP_ANALYSIS_API_URL}
+      - GITHUB_PAT=${GITHUB_PAT}
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET}
+    ports:
+      - "5116:5116"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:5116/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - code-review-network
+    restart: unless-stopped
+
+  react-app:
+    build:
+      context: ./react-app
+      dockerfile: Dockerfile
+    container_name: code-review-frontend
+    depends_on:
+      - dotnet-api
+    environment:
+      - REACT_APP_API_URL=${REACT_APP_API_URL}
+    ports:
+      - "3000:80"
+    healthcheck:
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:80/" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - code-review-network
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  code-review-network:
+    driver: bridge

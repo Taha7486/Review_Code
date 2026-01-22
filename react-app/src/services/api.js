@@ -55,7 +55,8 @@ api.interceptors.response.use(
             const isAuthEndpoint = requestUrl.includes('/auth/login') || requestUrl.includes('/auth/register');
 
             // Don't auto-logout for login/register endpoints (invalid credentials are expected)
-            if (!isAuthEndpoint) {
+            // Also don't auto-logout for GitHub token errors (handled by the specific component)
+            if (!isAuthEndpoint && errorCode !== 'GITHUB_UNAUTHORIZED') {
                 // Clear authentication data from localStorage
                 localStorage.removeItem('token');
 

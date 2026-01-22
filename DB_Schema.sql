@@ -15,6 +15,7 @@ CREATE TABLE users (
     username VARCHAR(100) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
+    github_access_token VARCHAR(255) NULL,
 
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at DATETIME(6) NULL ON UPDATE CURRENT_TIMESTAMP(6)

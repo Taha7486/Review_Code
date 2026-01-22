@@ -42,6 +42,17 @@ public class RepositoryService : IRepositoryService
             _logger.LogDebug("[{CorrelationId}] Creating new repository record for {RepoUrl}", correlationId, fullUrl);
 
             // Fetch actual GitHub repo details to get the real ID and fullName
+            // Fix: If no token provided, try to use user's stored token
+            if (string.IsNullOrEmpty(githubToken))
+            {
+                var user = await _context.Users.FindAsync(userId);
+                if (user != null && !string.IsNullOrEmpty(user.GithubAccessToken))
+                {
+                    _logger.LogDebug("[{CorrelationId}] Using stored GitHub token for fetching repo details", correlationId);
+                    githubToken = user.GithubAccessToken;
+                }
+            }
+
             var client = _gitHubClient.GetAuthenticatedClient(githubToken);
             var githubRepo = await client.Repository.Get(owner, repoName);
 

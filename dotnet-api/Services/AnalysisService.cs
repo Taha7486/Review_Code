@@ -14,7 +14,7 @@ public interface IAnalysisService
     Task<AnalysisResultDto> AnalyzeBranchAsync(AnalyzeBranchDto request, int userId);
     Task<int> StartAnalysisAsync(AnalyzeBranchDto request, int userId, string correlationId);
     Task ProcessAnalysisAsync(int runId, AnalyzeBranchDto request, int userId, string correlationId, CancellationToken cancellationToken = default);
-    Task<List<string>> GetRemoteBranchesAsync(string repoUrl, string? githubToken = null);
+    Task<List<string>> GetRemoteBranchesAsync(string repoUrl, string? githubToken = null, int? userId = null);
     Task<List<AnalysisRunListItemDto>> GetAnalysisRunsAsync(int userId, string? repoUrl = null, string? branchName = null, int limit = 20);
     Task<AnalysisRunDetailDto?> GetAnalysisRunByIdAsync(int runId, int userId);
     Task<List<IssueDto>> GetAnalysisRunIssuesAsync(int runId, int userId, string? severity = null, string? category = null);
@@ -277,6 +277,17 @@ public class AnalysisService : IAnalysisService
 
         try
         {
+            // If no token provided, try to use user's stored token
+            if (string.IsNullOrEmpty(request.GithubToken))
+            {
+                var user = await _context.Users.FindAsync(userId);
+                if (user != null && !string.IsNullOrEmpty(user.GithubAccessToken))
+                {
+                    _logger.LogDebug("[{CorrelationId}] Using stored GitHub token for analysis", correlationId);
+                    request.GithubToken = user.GithubAccessToken;
+                }
+            }
+
             // Get authenticated GitHub client
             var authenticatedClient = _githubClientService.GetAuthenticatedClient(request.GithubToken);
             
@@ -379,6 +390,18 @@ public class AnalysisService : IAnalysisService
             }
 
             _logger.LogInformation("[{CorrelationId}] Processing analysis run {RunId}", correlationId, runId);
+
+            // If no token provided in request, try to use user's stored token (crucial for background jobs)
+            if (string.IsNullOrEmpty(request.GithubToken))
+            {
+                // We need to use a separate scope or just find on the existing context since we are in a background job scope
+                var user = await _context.Users.FindAsync(new object[] { userId }, cancellationToken);
+                if (user != null && !string.IsNullOrEmpty(user.GithubAccessToken))
+                {
+                    _logger.LogDebug("[{CorrelationId}] Using stored GitHub token for background analysis processing", correlationId);
+                    request.GithubToken = user.GithubAccessToken;
+                }
+            }
 
             // Get authenticated GitHub client
             var authenticatedClient = _githubClientService.GetAuthenticatedClient(request.GithubToken);
@@ -525,8 +548,19 @@ public class AnalysisService : IAnalysisService
         }
     }
 
-    public async Task<List<string>> GetRemoteBranchesAsync(string repoUrl, string? githubToken = null)
+    public async Task<List<string>> GetRemoteBranchesAsync(string repoUrl, string? githubToken = null, int? userId = null)
     {
+        // If no explicit token provided but we have a userId, try to find user's stored token
+        if (string.IsNullOrEmpty(githubToken) && userId.HasValue)
+        {
+            var user = await _context.Users.FindAsync(userId.Value);
+            if (user != null && !string.IsNullOrEmpty(user.GithubAccessToken))
+            {
+                _logger.LogDebug("Using stored GitHub token for user {UserId}", userId);
+                githubToken = user.GithubAccessToken;
+            }
+        }
+
         var branches = await _githubClientService.GetRemoteBranchesAsync(repoUrl, githubToken);
         return branches.ToList();
     }
