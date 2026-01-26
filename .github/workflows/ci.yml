@@ -163,15 +163,19 @@ jobs:
     
     steps:
     - name: Check test results
+      env:
+        DOTNET_RESULT: ${{ needs.test-dotnet.result }}
+        PHP_RESULT: ${{ needs.test-php.result }}
+        REACT_RESULT: ${{ needs.test-react.result }}
       run: |
         echo "## Test Results Summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ .NET Tests: ${{ needs.test-dotnet.result }}" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ PHP Tests: ${{ needs.test-php.result }}" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ React Tests: ${{ needs.test-react.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ .NET Tests: $DOTNET_RESULT" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ PHP Tests: $PHP_RESULT" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ React Tests: $REACT_RESULT" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
-        if [[ "${{ needs.test-dotnet.result }}" == "success" && "${{ needs.test-php.result }}" == "success" && "${{ needs.test-react.result }}" == "success" ]]; then
+        if [[ "$DOTNET_RESULT" == "success" && "$PHP_RESULT" == "success" && "$REACT_RESULT" == "success" ]]; then
           echo "🎉 All tests passed!" >> $GITHUB_STEP_SUMMARY
           exit 0
         else
