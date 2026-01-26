@@ -1,0 +1,26 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # .NET API
+  - job_name: 'dotnet-api'
+    static_configs:
+      - targets: ['code-review-api:5116']
+    metrics_path: '/metrics'
+
+  # PHP Analysis Service
+  - job_name: 'php-service'
+    static_configs:
+      - targets: ['code-review-php:8000']
+    metrics_path: '/metrics'
+
+  # MySQL Database Exporter
+  - job_name: 'mysql'
+    static_configs:
+      - targets: ['mysql-exporter:9104']
+
+  # Prometheus itself (self-monitoring)
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

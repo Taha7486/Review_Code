@@ -93,8 +93,64 @@ services:
       - code-review-network
     restart: unless-stopped
 
+  mysql-exporter:
+    image: prom/mysqld-exporter:latest
+    container_name: code-review-mysql-exporter
+    volumes:
+      - ./.my.cnf:/.my.cnf
+    command:
+      - --config.my-cnf=/.my.cnf
+      - --collect.global_status
+      - --collect.global_variables
+      - --collect.info_schema.processlist
+    ports:
+      - "9104:9104"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - code-review-network
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: code-review-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - code-review-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: code-review-grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    networks:
+      - code-review-network
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
 volumes:
   mysql_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
     driver: local
 
 networks:

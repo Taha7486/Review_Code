@@ -37,3 +37,6 @@ TestResults/
 
 # Docker
 docker-compose.override.yml
+
+# MySQL
+.my.cnf

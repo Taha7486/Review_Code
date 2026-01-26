@@ -25,6 +25,7 @@ public class AnalysisService : IAnalysisService
     private readonly ApplicationDbContext _context;
     private readonly ILogger<AnalysisService> _logger;
     private readonly IMetricsService? _metricsService;
+    private readonly IPrometheusMetricsService _prometheusMetrics;
     
     // Helper services
     private readonly IGitHubClientService _githubClientService;
@@ -47,6 +48,7 @@ public class AnalysisService : IAnalysisService
         IRepositoryService repositoryService,
         IMetricsCalculator metricsCalculator,
         IMemoryCache cache,
+        IPrometheusMetricsService prometheusMetrics,
         IMetricsService? metricsService = null)
     {
         _context = context;
@@ -59,6 +61,7 @@ public class AnalysisService : IAnalysisService
         _repositoryService = repositoryService;
         _metricsCalculator = metricsCalculator;
         _cache = cache;
+        _prometheusMetrics = prometheusMetrics;
         _metricsService = metricsService;
     }
 
@@ -198,7 +201,18 @@ public class AnalysisService : IAnalysisService
 
             var duration = (DateTime.UtcNow - startTime).TotalSeconds;
             
-            // Record metrics
+            // Record Prometheus metrics
+            _prometheusMetrics.IncrementAnalysisStarted("completed");
+            _prometheusMetrics.RecordAnalysisDuration(duration);
+            foreach (var fileResult in phpResult.Results)
+            {
+                foreach (var issue in fileResult.Issues)
+                {
+                    _prometheusMetrics.IncrementIssuesFound(issue.Severity, issue.Category);
+                }
+            }
+            
+            // Record old metrics service
             _metricsService?.RecordAnalysisDuration(duration, phpResult.FilesAnalyzed, totalIssues);
             foreach (var fileResult in phpResult.Results)
             {
@@ -374,6 +388,10 @@ public class AnalysisService : IAnalysisService
         var startTime = DateTime.UtcNow;
         AnalysisRun? run = null;
 
+        // Track analysis started
+        _prometheusMetrics.IncrementAnalysisStarted("started");
+        _prometheusMetrics.IncrementActiveAnalysis();
+
         try
         {
             run = await _context.AnalysisRuns.FindAsync(new object[] { runId }, cancellationToken);
@@ -501,7 +519,19 @@ public class AnalysisService : IAnalysisService
 
             var duration = (DateTime.UtcNow - startTime).TotalSeconds;
             
-            // Record metrics
+            // Record Prometheus metrics
+            _prometheusMetrics.IncrementAnalysisStarted("completed");
+            _prometheusMetrics.RecordAnalysisDuration(duration);
+            _prometheusMetrics.DecrementActiveAnalysis();
+            foreach (var fileResult in phpResult.Results)
+            {
+                foreach (var issue in fileResult.Issues)
+                {
+                    _prometheusMetrics.IncrementIssuesFound(issue.Severity, issue.Category);
+                }
+            }
+            
+            // Record old metrics
             _metricsService?.RecordAnalysisDuration(duration, phpResult.FilesAnalyzed, totalIssues);
             foreach (var fileResult in phpResult.Results)
             {
@@ -517,6 +547,8 @@ public class AnalysisService : IAnalysisService
         }
         catch (RateLimitExceededException ex)
         {
+            _prometheusMetrics.IncrementAnalysisStarted("failed");
+            _prometheusMetrics.DecrementActiveAnalysis();
             _logger.LogWarning(ex, "[{CorrelationId}] GitHub rate limit exceeded during processing", correlationId);
             if (run != null)
             {
@@ -528,6 +560,8 @@ public class AnalysisService : IAnalysisService
         }
         catch (Exception ex)
         {
+            _prometheusMetrics.IncrementAnalysisStarted("failed");
+            _prometheusMetrics.DecrementActiveAnalysis();
             _logger.LogError(ex, "[{CorrelationId}] Error processing analysis run {RunId}", correlationId, runId);
             
             if (run != null)

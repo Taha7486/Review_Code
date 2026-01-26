@@ -98,4 +98,31 @@ runTest("SecurityAnalyzer - Detects potential SQL injection", function () {
     throw new Exception("Did not detect potential SQL injection");
 });
 
+// 4. Edge Case Tests (New)
+runTest("Edge Case - Empty File", function () {
+    $analyzer = new StyleAnalyzer();
+    $code = "";
+    $issues = $analyzer->analyze($code, 'empty.php');
+    // Should not crash, just return empty issues or minimal metrics
+    if (!is_array($issues)) throw new Exception("Failed to handle empty file");
+});
+
+runTest("Edge Case - Malformed PHP Code", function () {
+    $analyzer = new ComplexityAnalyzer();
+    $code = "<?php function broken( {";
+    // Should not throw fatal error, might verify token parsing behavior
+    // For now just ensure it doesn't crash the script
+    $result = $analyzer->analyze($code, 'broken.php');
+    if (!is_array($result)) throw new Exception("Failed to handle malformed code");
+});
+
+runTest("Edge Case - Non-PHP File Injection", function () {
+    $analyzer = new SecurityAnalyzer();
+    // Hypothetical situation where JS code is passed to PHP analyzer
+    $code = "function test() { alert('xss'); }"; 
+    $issues = $analyzer->analyze($code, 'script.js');
+    // Should proceed without fatal error
+    if (!is_array($issues)) throw new Exception("Failed to handle non-PHP content");
+});
+
 echo "\nSummary: All PHP tests passed successfully!\n";

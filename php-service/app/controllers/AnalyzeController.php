@@ -143,9 +143,24 @@ class AnalyzeController
             }
         }
 
+        $startTime = microtime(true); // Track analysis start time
+
         try {
             // Analyze all files
             $result = $this->analysisService->analyzeMultipleFiles($files);
+
+            // Track metrics
+            $duration = microtime(true) - $startTime;
+            MetricsController::recordAnalysisTime($duration);
+            MetricsController::incrementAnalysisProcessed();
+            MetricsController::incrementFilesAnalyzed(count($files));
+
+            // Track issues by severity
+            foreach ($result['results'] ?? [] as $fileResult) {
+                foreach ($fileResult['issues'] ?? [] as $issue) {
+                    MetricsController::trackIssue($issue['severity'] ?? 'low');
+                }
+            }
 
             $responseData = json_encode($result);
             $response->getBody()->write($responseData);

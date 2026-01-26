@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Text.RegularExpressions;
+using Prometheus;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -108,6 +109,9 @@ builder.Services.AddHostedService<BackgroundAnalysisProcessor>(sp => sp.GetRequi
 
 // Register Metrics Service
 builder.Services.AddSingleton<IMetricsService, MetricsService>();
+
+// Register Prometheus Metrics Service
+builder.Services.AddSingleton<IPrometheusMetricsService, PrometheusMetricsService>();
 
 // Register Health Checks
 builder.Services.AddHealthChecks();
@@ -244,8 +248,10 @@ app.MapOpenApi();
 app.UseCors("AllowReactApp"); 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseHttpMetrics(); // 📊 Enable Prometheus HTTP metrics collection
 app.MapControllers();
 app.MapHealthChecks("/health"); // 🏥 Add Health Check Endpoint
+app.MapMetrics(); // 📈 Expose Prometheus metrics at /metrics endpoint
 
 app.Run();
 

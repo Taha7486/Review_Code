@@ -17,17 +17,20 @@ public class PhpServiceClient : IPhpServiceClient
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<PhpServiceClient> _logger;
     private readonly IDataSanitizer _dataSanitizer;
+    private readonly IPrometheusMetricsService _prometheusMetrics;
 
     public PhpServiceClient(
         IConfiguration config,
         IHttpClientFactory httpClientFactory,
         ILogger<PhpServiceClient> logger,
-        IDataSanitizer dataSanitizer)
+        IDataSanitizer dataSanitizer,
+        IPrometheusMetricsService prometheusMetrics)
     {
         _config = config;
         _httpClientFactory = httpClientFactory;
         _logger = logger;
         _dataSanitizer = dataSanitizer;
+        _prometheusMetrics = prometheusMetrics;
     }
 
     public async Task<PhpAnalysisResponse> AnalyzeFilesAsync(List<PullRequestFileDetail> files, string correlationId)
@@ -71,26 +74,57 @@ public class PhpServiceClient : IPhpServiceClient
             client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", internalSecret);
         }
         
-        var response = await client.PostAsync(phpServiceUrl, jsonContent);
-        
-        if (!response.IsSuccessStatusCode)
+        HttpResponseMessage? response = null;
+        try
         {
-            var errorBody = await response.Content.ReadAsStringAsync();
-            var sanitizedError = _dataSanitizer.RedactSensitiveData(errorBody.Length > 200 ? errorBody.Substring(0, 200) + "..." : errorBody);
-            _logger.LogError("[{CorrelationId}] PHP service returned {StatusCode}. Error: {Error}", correlationId, response.StatusCode, sanitizedError);
-            throw new HttpRequestException($"PHP analysis service returned status {response.StatusCode}. Body: {sanitizedError}");
+            response = await client.PostAsync(phpServiceUrl, jsonContent);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                _prometheusMetrics.IncrementPhpServiceCall("failure", "http_error");
+                var errorBody = await response.Content.ReadAsStringAsync();
+                var sanitizedError = _dataSanitizer.RedactSensitiveData(errorBody.Length > 200 ? errorBody.Substring(0, 200) + "..." : errorBody);
+                _logger.LogError("[{CorrelationId}] PHP service returned {StatusCode}. Error: {Error}", correlationId, response.StatusCode, sanitizedError);
+                throw new HttpRequestException($"PHP analysis service returned status {response.StatusCode}. Body: {sanitizedError}");
+            }
+        }
+        catch (TaskCanceledException)
+        {
+            _prometheusMetrics.IncrementPhpServiceCall("failure", "timeout");
+            _logger.LogError("[{CorrelationId}] PHP service request timed out after {Timeout} minutes", correlationId, client.Timeout.TotalMinutes);
+            throw;
+        }
+        catch (HttpRequestException ex)
+        {
+            _prometheusMetrics.IncrementPhpServiceCall("failure", "connection");
+            _logger.LogError(ex, "[{CorrelationId}] Failed to connect to PHP service at {Url}", correlationId, phpServiceUrl);
+            throw;
         }
 
         var content = await response.Content.ReadAsStringAsync();
-        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-        var phpResult = JsonSerializer.Deserialize<PhpAnalysisResponse>(content, options);
+        PhpAnalysisResponse? phpResult = null;
+        try
+        {
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            phpResult = JsonSerializer.Deserialize<PhpAnalysisResponse>(content, options);
+        }
+        catch (JsonException)
+        {
+            _prometheusMetrics.IncrementPhpServiceCall("failure", "parse");
+            _logger.LogError("[{CorrelationId}] Failed to parse PHP service response", correlationId);
+            throw;
+        }
 
         if (phpResult == null)
         {
+            _prometheusMetrics.IncrementPhpServiceCall("failure", "empty_response");
             _logger.LogError("[{CorrelationId}] Empty response from PHP service", correlationId);
             throw new Exception("Empty response from PHP service");
         }
 
+        // Success!
+        _prometheusMetrics.IncrementPhpServiceCall("success", "none");
+        
         _logger.LogDebug(
             "[{CorrelationId}] PHP analysis complete. Issues: {IssueCount}, Score: {Score}",
             correlationId, phpResult.TotalIssues, phpResult.AverageScore);

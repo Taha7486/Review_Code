@@ -31,13 +31,19 @@ public class GitHubFileService : IGitHubFileService
     private readonly IFileFilter _fileFilter;
     private readonly ILogger<GitHubFileService> _logger;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IPrometheusMetricsService _prometheusMetrics;
     private const long MaxArchiveSize = 25 * 1024 * 1024; // 25MB safety limit
 
-    public GitHubFileService(IFileFilter fileFilter, ILogger<GitHubFileService> logger, IHttpClientFactory httpClientFactory)
+    public GitHubFileService(
+        IFileFilter fileFilter, 
+        ILogger<GitHubFileService> logger, 
+        IHttpClientFactory httpClientFactory,
+        IPrometheusMetricsService prometheusMetrics)
     {
         _fileFilter = fileFilter;
         _logger = logger;
         _httpClientFactory = httpClientFactory;
+        _prometheusMetrics = prometheusMetrics;
     }
 
     public async Task<List<PullRequestFileDetail>> GetCodeFromBranchAsync(
@@ -50,6 +56,20 @@ public class GitHubFileService : IGitHubFileService
     {
         _logger.LogInformation("[{CorrelationId}] Starting Zipball retrieval for {Owner}/{Repo} branch {Branch}",
             correlationId, owner, repoName, branchName);
+
+        // Track GitHub rate limit before API call
+        try
+        {
+            var rateLimit = await client.RateLimit.GetRateLimits();
+            _prometheusMetrics.RecordGitHubRateLimit(
+                remaining: rateLimit.Resources.Core.Remaining,
+                limit: rateLimit.Resources.Core.Limit
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[{CorrelationId}] Failed to fetch GitHub rate limit", correlationId);
+        }
 
         var allFiles = await GetAllFilesFromBranchAsync(owner, repoName, branchName, correlationId, client);
 
