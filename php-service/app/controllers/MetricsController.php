@@ -6,16 +6,55 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 
 class MetricsController
 {
-    // In-memory counters (will reset on restart - acceptable for now)
-    private static $analysesProcessed = 0;
-    private static $filesAnalyzed = 0;
-    private static $issuesCounts = [
-        'critical' => 0,
-        'high' => 0,
-        'medium' => 0,
-        'low' => 0
-    ];
-    private static $analysisTimes = [];
+    // Persistent storage file path
+    private const METRICS_FILE = '/tmp/php_metrics.json';
+
+    // In-memory cache (loaded from file)
+    private static $metricsCache = null;
+
+    /**
+     * Load metrics from persistent storage
+     */
+    private static function loadMetrics(): array
+    {
+        if (self::$metricsCache !== null) {
+            return self::$metricsCache;
+        }
+
+        if (file_exists(self::METRICS_FILE)) {
+            $data = @file_get_contents(self::METRICS_FILE);
+            $metrics = json_decode($data, true);
+            if ($metrics) {
+                self::$metricsCache = $metrics;
+                return $metrics;
+            }
+        }
+
+        // Default metrics structure
+        self::$metricsCache = [
+            'analysesProcessed' => 0,
+            'filesAnalyzed' => 0,
+            'issuesCounts' => [
+                'critical' => 0,
+                'high' => 0,
+                'medium' => 0,
+                'low' => 0
+            ],
+            'analysisTimes' => []
+        ];
+
+        return self::$metricsCache;
+    }
+
+    /**
+     * Save metrics to persistent storage
+     */
+    private static function saveMetrics(): void
+    {
+        if (self::$metricsCache !== null) {
+            @file_put_contents(self::METRICS_FILE, json_encode(self::$metricsCache));
+        }
+    }
 
     /**
      * Expose Prometheus metrics in text format
@@ -32,22 +71,23 @@ class MetricsController
      */
     private function generatePrometheusFormat(): string
     {
+        $metrics = self::loadMetrics();
         $output = "";
 
         // 1. Analyses processed counter
         $output .= "# HELP php_analyses_processed_total Total analyses processed by PHP service\n";
         $output .= "# TYPE php_analyses_processed_total counter\n";
-        $output .= "php_analyses_processed_total " . self::$analysesProcessed . "\n\n";
+        $output .= "php_analyses_processed_total " . $metrics['analysesProcessed'] . "\n\n";
 
         // 2. Files analyzed counter
         $output .= "# HELP php_files_analyzed_total Total files analyzed\n";
         $output .= "# TYPE php_files_analyzed_total counter\n";
-        $output .= "php_files_analyzed_total " . self::$filesAnalyzed . "\n\n";
+        $output .= "php_files_analyzed_total " . $metrics['filesAnalyzed'] . "\n\n";
 
         // 3. Issues detected by severity
         $output .= "# HELP php_issues_detected_total Issues detected by severity\n";
         $output .= "# TYPE php_issues_detected_total counter\n";
-        foreach (self::$issuesCounts as $severity => $count) {
+        foreach ($metrics['issuesCounts'] as $severity => $count) {
             $output .= "php_issues_detected_total{severity=\"$severity\"} $count\n";
         }
         $output .= "\n";
@@ -63,8 +103,8 @@ class MetricsController
         $output .= "php_memory_peak_bytes " . memory_get_peak_usage(true) . "\n\n";
 
         // 6. Average analysis time (if we have data)
-        if (!empty(self::$analysisTimes)) {
-            $avgTime = array_sum(self::$analysisTimes) / count(self::$analysisTimes);
+        if (!empty($metrics['analysisTimes'])) {
+            $avgTime = array_sum($metrics['analysisTimes']) / count($metrics['analysisTimes']);
             $output .= "# HELP php_analysis_duration_seconds_avg Average analysis duration\n";
             $output .= "# TYPE php_analysis_duration_seconds_avg gauge\n";
             $output .= "php_analysis_duration_seconds_avg " . number_format($avgTime, 3) . "\n\n";
@@ -83,7 +123,10 @@ class MetricsController
      */
     public static function incrementAnalysisProcessed(): void
     {
-        self::$analysesProcessed++;
+        $metrics = self::loadMetrics();
+        $metrics['analysesProcessed']++;
+        self::$metricsCache = $metrics;
+        self::saveMetrics();
     }
 
     /**
@@ -91,7 +134,10 @@ class MetricsController
      */
     public static function incrementFilesAnalyzed(int $count = 1): void
     {
-        self::$filesAnalyzed += $count;
+        $metrics = self::loadMetrics();
+        $metrics['filesAnalyzed'] += $count;
+        self::$metricsCache = $metrics;
+        self::saveMetrics();
     }
 
     /**
@@ -99,9 +145,12 @@ class MetricsController
      */
     public static function trackIssue(string $severity): void
     {
+        $metrics = self::loadMetrics();
         $severity = strtolower($severity);
-        if (isset(self::$issuesCounts[$severity])) {
-            self::$issuesCounts[$severity]++;
+        if (isset($metrics['issuesCounts'][$severity])) {
+            $metrics['issuesCounts'][$severity]++;
+            self::$metricsCache = $metrics;
+            self::saveMetrics();
         }
     }
 
@@ -110,11 +159,15 @@ class MetricsController
      */
     public static function recordAnalysisTime(float $durationSeconds): void
     {
-        self::$analysisTimes[] = $durationSeconds;
+        $metrics = self::loadMetrics();
+        $metrics['analysisTimes'][] = $durationSeconds;
 
         // Keep only last 100 measurements to avoid memory bloat
-        if (count(self::$analysisTimes) > 100) {
-            array_shift(self::$analysisTimes);
+        if (count($metrics['analysisTimes']) > 100) {
+            array_shift($metrics['analysisTimes']);
         }
+
+        self::$metricsCache = $metrics;
+        self::saveMetrics();
     }
 }
