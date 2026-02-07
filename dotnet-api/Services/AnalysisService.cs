@@ -203,7 +203,7 @@ public class AnalysisService : IAnalysisService
             
             // Record Prometheus metrics
             _prometheusMetrics.IncrementAnalysisStarted("completed");
-            _prometheusMetrics.RecordAnalysisDuration(duration);
+            // _prometheusMetrics.RecordAnalysisDuration(duration); // REMOVED - Metric not used in dashboard
             foreach (var fileResult in phpResult.Results)
             {
                 foreach (var issue in fileResult.Issues)
@@ -390,7 +390,7 @@ public class AnalysisService : IAnalysisService
 
         // Track analysis started
         _prometheusMetrics.IncrementAnalysisStarted("started");
-        _prometheusMetrics.IncrementActiveAnalysis();
+        // _prometheusMetrics.IncrementActiveAnalysis(); // REMOVED - Metric not used in dashboard
 
         try
         {
@@ -521,8 +521,8 @@ public class AnalysisService : IAnalysisService
             
             // Record Prometheus metrics
             _prometheusMetrics.IncrementAnalysisStarted("completed");
-            _prometheusMetrics.RecordAnalysisDuration(duration);
-            _prometheusMetrics.DecrementActiveAnalysis();
+            // _prometheusMetrics.RecordAnalysisDuration(duration); // REMOVED - Metric not used in dashboard
+            // _prometheusMetrics.DecrementActiveAnalysis(); // REMOVED - Metric not used in dashboard
             foreach (var fileResult in phpResult.Results)
             {
                 foreach (var issue in fileResult.Issues)
@@ -548,7 +548,7 @@ public class AnalysisService : IAnalysisService
         catch (RateLimitExceededException ex)
         {
             _prometheusMetrics.IncrementAnalysisStarted("failed");
-            _prometheusMetrics.DecrementActiveAnalysis();
+            // _prometheusMetrics.DecrementActiveAnalysis(); // REMOVED - Metric not used in dashboard
             _logger.LogWarning(ex, "[{CorrelationId}] GitHub rate limit exceeded during processing", correlationId);
             if (run != null)
             {
@@ -561,7 +561,7 @@ public class AnalysisService : IAnalysisService
         catch (Exception ex)
         {
             _prometheusMetrics.IncrementAnalysisStarted("failed");
-            _prometheusMetrics.DecrementActiveAnalysis();
+            // _prometheusMetrics.DecrementActiveAnalysis(); // REMOVED - Metric not used in dashboard
             _logger.LogError(ex, "[{CorrelationId}] Error processing analysis run {RunId}", correlationId, runId);
             
             if (run != null)

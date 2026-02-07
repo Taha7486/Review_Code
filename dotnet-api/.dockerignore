@@ -1,31 +1,21 @@
-# Build artifacts
-bin/
-obj/
-out/
-
-# User-specific files
-*.user
-*.suo
-
-# IDE
-.vscode/
-.idea/
-.vs/
-
-# Test results
-TestResults/
-
-# Migrations (keep these)
-# !Migrations/
-
-# Git
+# Ignore Git folder
 .git/
 .gitignore
-README.md
 
-# Documentation
-*.md
+# Ignore VS Code settings
+.vscode/
 
-# Environment
+# Ignore Build Output
+bin/
+obj/
+publish/
+Debug/
+Release/
+
+# Ignore User Secrets & Env
 .env
-.env.example
+appsettings.Development.json
+
+# Ignore Docker related
+Dockerfile
+*.dockerignore

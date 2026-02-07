@@ -81,7 +81,7 @@ public class PhpServiceClient : IPhpServiceClient
             
             if (!response.IsSuccessStatusCode)
             {
-                _prometheusMetrics.IncrementPhpServiceCall("failure", "http_error");
+                // _prometheusMetrics.IncrementPhpServiceCall("failure", "http_error"); // REMOVED - Metric not used
                 var errorBody = await response.Content.ReadAsStringAsync();
                 var sanitizedError = _dataSanitizer.RedactSensitiveData(errorBody.Length > 200 ? errorBody.Substring(0, 200) + "..." : errorBody);
                 _logger.LogError("[{CorrelationId}] PHP service returned {StatusCode}. Error: {Error}", correlationId, response.StatusCode, sanitizedError);
@@ -90,13 +90,13 @@ public class PhpServiceClient : IPhpServiceClient
         }
         catch (TaskCanceledException)
         {
-            _prometheusMetrics.IncrementPhpServiceCall("failure", "timeout");
+            // _prometheusMetrics.IncrementPhpServiceCall("failure", "timeout"); // REMOVED - Metric not used
             _logger.LogError("[{CorrelationId}] PHP service request timed out after {Timeout} minutes", correlationId, client.Timeout.TotalMinutes);
             throw;
         }
         catch (HttpRequestException ex)
         {
-            _prometheusMetrics.IncrementPhpServiceCall("failure", "connection");
+            // _prometheusMetrics.IncrementPhpServiceCall("failure", "connection"); // REMOVED - Metric not used
             _logger.LogError(ex, "[{CorrelationId}] Failed to connect to PHP service at {Url}", correlationId, phpServiceUrl);
             throw;
         }
@@ -110,20 +110,20 @@ public class PhpServiceClient : IPhpServiceClient
         }
         catch (JsonException)
         {
-            _prometheusMetrics.IncrementPhpServiceCall("failure", "parse");
+            // _prometheusMetrics.IncrementPhpServiceCall("failure", "parse"); // REMOVED - Metric not used
             _logger.LogError("[{CorrelationId}] Failed to parse PHP service response", correlationId);
             throw;
         }
 
         if (phpResult == null)
         {
-            _prometheusMetrics.IncrementPhpServiceCall("failure", "empty_response");
+            // _prometheusMetrics.IncrementPhpServiceCall("failure", "empty_response"); // REMOVED - Metric not used
             _logger.LogError("[{CorrelationId}] Empty response from PHP service", correlationId);
             throw new Exception("Empty response from PHP service");
         }
 
         // Success!
-        _prometheusMetrics.IncrementPhpServiceCall("success", "none");
+        // _prometheusMetrics.IncrementPhpServiceCall("success", "none"); // REMOVED - Metric not used
         
         _logger.LogDebug(
             "[{CorrelationId}] PHP analysis complete. Issues: {IssueCount}, Score: {Score}",

@@ -1,304 +1,105 @@
-# Code Review Automation Tool
+# 🔍 Code Review Automation Platform
 
-## 🎯 Project Overview
+![License](https://img.shields.io/badge/license-MIT-blue.svg) 
+![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)
+![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=flat&logo=docker&logoColor=white)
+![.NET](https://img.shields.io/badge/.NET-512BD4?style=flat&logo=dotnet&logoColor=white)
+![React](https://img.shields.io/badge/-React-61DAFB?style=flat&logo=react&logoColor=black)
 
-An automated code review platform that analyzes Git branches for code quality, security vulnerabilities, and best practices. Developers can analyze their feature branches **before** creating pull requests, getting instant feedback on issues.
-
-**Status:** Phase 9 Complete - Production-Ready with Full Observability Stack
-
----
-
-## 🏗️ Architecture
-
-### System Flow
-```
-Developer selects GitHub Repo + Branch
-    ↓
-Frontend fetches available branches (GitHub API)
-    ↓
-User selects branch → Analyze
-    ↓
-.NET API compares branch vs main (Octokit)
-    ↓
-Fetches full file content from branch
-    ↓
-Sends to PHP Analysis Service (HTTP)
-    ↓
-PHP analyzes: Complexity, Security, Style
-    ↓
-Returns structured JSON report
-    ↓
-Frontend displays: Score Dial + Code Inspector + Grouped Issues
-```
-
-### Tech Stack
-- **Frontend:** React (Port 3000)
-- **Backend API:** .NET 9.0 Web API (Port 5116)
-- **Analysis Engine:** PHP 8+ (Slim Framework) (Port 8000)
-- **Database:** MySQL 8.0
-- **Containerization:** Docker + Docker Compose
+A production-ready **Microservices DevOps Platform** that automates code quality analysis. It leverages a modern microservices architecture to analyze GitHub branches for complexity, security, and style issues before they merge.
 
 ---
 
-## 📁 Project Structure
-```
-project-root/
-├── dotnet-api/              # .NET Web API Orhcestrator
-│   ├── Controllers/         # Auth, Review
-│   ├── Models/             # EF Core Models & DTOs
-│   ├── Services/           # ReviewService (The Brain)
-│   ├── Data/               # DbContext & migrations
-│   └── Program.cs          # DI & Configuration
-│
-├── php-service/            # PHP Analysis Engine
-│   ├── app/Controllers     # AnalysisController
-│   ├── app/Services        # Complexity, Security, Style logic
-│   └── public/index.php    # Entry point
-│
-├── react-frontend/         # React Dashboard
-│
-├── DB_Schema.sql           # Reference schema
-├── setup_instructions.md   # Setup Guide
-└── README.md              
-```
+## 📸 Dashboard & Metrics
+
+*(Screenshots to be added here)*
+
+> **Live Observability:** Real-time visibility into system performance using Prometheus & Grafana.
 
 ---
 
-## 🚀 Current Development Phase
 
-### Phase 5: Core Analysis Logic (MVP)
+### 🛠️ Tech Stack
 
-**Goals:**
-- ✅ Database & Auth Setup (Phase 2)
-- ✅ Fetch Code from GitHub (Octokit)
-- ✅ Configure Service-to-Service communication (HTTP)
-- ✅ Implement PHP Analysis logic (Slim)
-- ✅ End-to-End flow (.NET -> PHP -> .NET)
-
-**Next Steps (Phase 6):**
-1. Integrate "Analyze" button in React.
-2. Link GitHub OAuth for private repos.
-3. Dockerize and Compose all services.
+| Service | Technology | Port | Description |
+| :--- | :--- | :--- | :--- |
+| **Frontend** | React 18, Tailwind | `3000` | Interactive Dashboard, Real-time status |
+| **Backend** | .NET 9.0 Web API | `5116` | Orchestration, Auth, GitHub Integration |
+| **Analyzer** | PHP 8.2 (Slim) | `8000` | Static Code Analysis Engine |
+| **Database** | MySQL 8.0 | `3306` | Relational Data Store (Users, Reports) |
+| **Monitoring** | Prometheus | `9090` | Metric scraping and storage |
+| **Visualization** | Grafana | `3001` | Operational Dashboards |
 
 ---
 
-## 🔧 Development Setup
+## ✨ Key Features
+
+*   **⚡ Automated Branch Analysis:** Fetches and analyzes any GitHub branch in seconds.
+*   **📊 Deep Metrics:** Calculates **Cyclomatic Complexity**, **Maintainability Index**, and **Lines of Code (LOC)**.
+*   **🛡️ Security Scanning:** Detects common vulnerabilities (e.g., `eval()`, hardcoded secrets).
+*   **📈 Full Observability:** Professional Grafana dashboards tracking `requests_per_second`, `analysis_duration`, and `system_health`.
+*   **🐳 Fully Containerized:** One command (`docker-compose up`) prevents "it works on my machine" issues.
+*   **🔄 CI/CD Pipeline:** Automated testing and build pipeline using GitHub Actions.
+
+---
+
+## 🚀 Quick Start (Docker)
+
+The easiest way to run the platform is using Docker Compose.
 
 ### Prerequisites
-- .NET 9.0 SDK
-- Node.js 18+
-- PHP 8.2+
-- MySQL 8.0
-- Composer (for PHP dependencies)
-- Docker Desktop (optional, for containerization)
+*   Docker & Docker Compose installed.
+*   A GitHub Personal Access Token (for fetching private repos).
 
-### 🔐 Environment Variables Setup
+### Steps
 
-**IMPORTANT:** Never commit secrets to version control!
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/Taha7486/Review_Code.git
+    cd Review_Code
+    ```
 
-1. **Create `.env` file** in `dotnet-api/`:
-   ```bash
-   cd dotnet-api
-   cp .env.example .env
-   ```
+2.  **Configure Environment:**
+    Copy the example env file and add your credentials.
+    ```bash
+    cp .env.example .env
+    # Edit .env and add your GITHUB_PAT and JWT_SECRET
+    ```
 
-2. **Edit `.env`** with your credentials:
-   ```env
-   # Database
-   DB_HOST=localhost
-   DB_PORT=3306
-   DB_NAME=code_review_tool
-   DB_USER=root
-   DB_PASSWORD=your_mysql_password
-   
-   # JWT (Must be at least 32 characters!)
-   JWT_SECRET_KEY=your_super_secret_jwt_key_here_minimum_32_chars
-   
-   # Services
-   PHP_ANALYSIS_API_URL=http://localhost:8000/api/analyze/files
-   
-   # GitHub (Optional - for private repos)
-   GITHUB_PAT=your_github_personal_access_token
-   ```
+3.  **Run the Stack:**
+    ```bash
+    docker-compose up -d --build
+    ```
 
-3. **Security Notes:**
-   - `.env` is automatically gitignored
-   - In production, use environment variables or secret managers (Azure Key Vault, AWS Secrets Manager)
-   - The `.env.example` file is committed as a template
-
-### Running Locally
-
-**1. Database Setup**
-```bash
-# Create database
-mysql -u root -p
-CREATE DATABASE code_review_tool;
-
-# Run migrations
-cd dotnet-api
-dotnet ef database update
-```
-
-**2. .NET API**
-```bash
-cd dotnet-api
-dotnet restore
-dotnet run
-# Runs on http://localhost:5116
-```
-
-**3. PHP Analysis Service**
-```bash
-cd php-service
-composer install  # First time only
-php -S localhost:8000 -t public
-# CRITICAL: Must use -t public for routing!
-# Runs on http://localhost:8000
-```
-
-**4. React Frontend**
-```bash
-cd react-app
-npm install  # First time only
-npm start
-# Runs on http://localhost:3000
-```
-
-### 🎯 Quick Test
-
-1. Navigate to `http://localhost:3000`
-2. Login with your account
-3. Enter a GitHub repo URL: `https://github.com/owner/repo`
-4. Click the **Refresh icon** 🔄 to load branches
-5. Select a branch from the dropdown
-6. Click **Analyze Branch**
-7. View results with:
-   - **Visual Score Dial**
-   - **Issues grouped by file**
-   - **Code Inspector** (shows exact problematic lines)
-
----
-
-## 📝 Notes
-
-### Security
-- **Environment variables** used for all secrets (DB, JWT, API keys)
-- Secrets never committed to Git (`.env` is gitignored)
-- Use `.env.example` as a template
-- Production: Use cloud secret managers (Azure Key Vault, AWS Secrets Manager)
-
-### Architecture Decisions
-- **Branch-based analysis** (not PR-based) - analyze before creating PRs
-- **Full file content** sent to PHP analyzer (not just diffs/patches)
-- Line numbers accurate to actual file content
-- All timestamps use UTC
-- JSON columns for flexible schema (metrics, configurations)
-- Cascade deletes enabled for data integrity
-
-### Current Features ✨
-- ✅ **Branch Dropdown**: Auto-fetch branches from GitHub
-- ✅ **Visual Score Dial**: Animated circular gauge (color-coded)
-- ✅ **Code Inspector**: Shows exact problematic lines with context (±2 lines)
-- ✅ **File Grouping**: Issues organized by file
-- ✅ **Smart Analysis**: Complexity, Security, Style checking
-- ✅ **Trailing Whitespace**: Disabled per user request
-
----
-
-## 🚀 Current Development Status
-
-### ✅ Completed (Phase 1-9)
-- **Phase 1-2**: Database, Auth, Core Architecture
-- **Phase 3**: Security Hardening (Secrets, Headers, Validation)
-- **Phase 4**: Performance Optimization (Caching, N+1 Fixes)
-- **Phase 5**: Testing Infrastructure (Unit Tests for Critical Paths)
-- **Phase 6**: Documentation (Codebase & API)
-- **Phase 7**: ✅ **CI/CD Pipeline with Comprehensive Testing**
-  - Automated tests for .NET, PHP, and React
-  - Test-first approach (tests must pass before building)
-  - Docker image building and pushing to Docker Hub
-  - Test artifacts and summary reporting
-- **Phase 8**: ✅ **Containerization & Orchestration**
-  - Docker Compose multi-service setup
-  - Health checks for all services
-  - Service networking and dependencies
-- **Phase 9**: ✅ **Monitoring & Observability - COMPLETE**
-  - Prometheus metrics collection (21+ custom metrics)
-  - Grafana dashboards (Application, Database, Resources)
-  - MySQL exporter integration
-  - Real-time performance monitoring
-
-### 🎯 Next Steps
-- 🚀 **Phase 10: Oracle Cloud Deployment** - See `ORACLE_CLOUD_DEPLOYMENT.md`
-- 📋 Infrastructure as Code (Terraform - after manual deployment)
-- 📋 SSL/TLS with Let's Encrypt
-- 📋 Advanced alerting (Grafana alerts)
-
----
-
-## 📚 API Documentation
-
-The .NET API enables interactive API documentation via Swagger UI:
-- **Swagger UI**: `http://localhost:5116/swagger` (Interactive testing)
-- **OpenAPI Spec**: `http://localhost:5116/swagger/v1/swagger.json`
-
-### Key Endpoints
-- **POST /api/auth/register**: Register new user
-- **POST /api/auth/login**: Login (Returns JWT)
-- **POST /api/analysis/start**: Start async analysis for a branch
-- **GET /api/analysis/runs**: List past analysis runs
-- **GET /api/analysis/runs/{id}**: Get full report (Issues, Metrics, Files)
+4.  **Access the App:**
+    *   **Frontend Check:** [http://localhost:3000](http://localhost:3000)
+    *   **Grafana Dashboard:** [http://localhost:3001](http://localhost:3001) (Login: `admin`/`admin`)
+    *   **Prometheus:** [http://localhost:9090](http://localhost:9090)
 
 ---
 
 ## 🧪 Testing
 
-### Running Tests
+We employ a test-driven approach with a comprehensive suite of automated tests.
+
 ```bash
-cd dotnet-api/tests
+# Run Backend Tests
+cd dotnet-api
 dotnet test
+
+# Run Frontend Tests
+cd react-app
+npm test
 ```
 
-### Test Coverage
-- **Unit Tests**: 
-  - `FileFilterTests`: Verifies extension/directory filtering logic
-  - `GitHubClientServiceTests`: Verifies Repo URL parsing and Auth logic
-- **Integration Tests**:
-  - `AnalysisFlowIntegrationTests`: Verifies Health Checks, Auth Flow, and Analysis Workflow (End-to-End)
-
 ---
 
-### Infrastructure & Monitoring
-- **Health Checks**:
-  - API: `http://localhost:5116/health` (Checks DB connectivity)
-  - PHP: `http://localhost:8000/health` (Checks service status & memory)
-- **Configuration**:
-  - Strict startup validation for environment variables (DB, JWT, Service URLs)
-  - Validation of safe defaults vs production requirements
-- **Security**:
-  - Token redaction in logs
-  - Input validation for code analysis (UTF-8 enforcement)
-  - JWT key strength enforcement (>32 bytes)
+## 📂 Project Structure
 
----
-
-## 📚 Additional Documentation
-
-For detailed information on specific topics, refer to these guides:
-
-- **[Oracle Cloud Deployment](ORACLE_CLOUD_DEPLOYMENT.md)** - Complete guide to deploying on Oracle Cloud Free Tier
-- **[CI/CD Pipeline Overview](CI_CD_PIPELINE_OVERVIEW.md)** - Comprehensive guide to the automated testing and deployment pipeline
-- **[Metrics Implementation](METRICS_IMPLEMENTATION_COMPLETE.md)** - Prometheus & Grafana monitoring setup
-- **[Quick Start Guide](QUICK_START_GUIDE.md)** - Next steps and deployment options
-- **[DevOps Without Kubernetes](DEVOPS_WITHOUT_KUBERNETES.md)** - Alternative deployment strategies
-
----
-
-## 🎯 Development Roadmap
-
-- ✅ Phase 7: Containerization (Docker) - **COMPLETED**
-- ✅ Phase 8: CI/CD Pipeline - **COMPLETED**
-- ✅ Phase 9: Monitoring & Observability - **COMPLETED**
-- � Phase 10: Cloud Deployment - **NEXT** (See DEPLOYMENT_OPTIONS.md)
-- 📋 Phase 11: Infrastructure as Code (Terraform)
-- 📋 Phase 12: Production Hardening (SSL, Backups, Scaling)
+```bash
+├── dotnet-api/         # Main Orchestrator (C#)
+├── php-service/        # Analysis Logic (PHP)
+├── react-app/          # User Interface (JS)
+├── infrastructure/     # Docker & Prometheus Configs
+└── .github/workflows/  # CI/CD Pipelines
+```

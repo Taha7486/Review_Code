@@ -9,7 +9,7 @@ services:
       MYSQL_DATABASE: ${DB_NAME}
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./DB_Schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - ./infrastructure/mysql/DB_Schema.sql:/docker-entrypoint-initdb.d/schema.sql
     ports:
       - "3306:3306"
     healthcheck:
@@ -97,12 +97,19 @@ services:
     image: prom/mysqld-exporter:latest
     container_name: code-review-mysql-exporter
     volumes:
-      - ./.my.cnf:/.my.cnf
+      - ./infrastructure/mysql/.my.cnf:/.my.cnf
     command:
       - --config.my-cnf=/.my.cnf
       - --collect.global_status
-      - --collect.global_variables
-      - --collect.info_schema.processlist
+      - --collect.info_schema.tables
+      - --no-collect.global_variables
+      - --no-collect.info_schema.innodb_metrics
+      - --no-collect.info_schema.processlist
+      - --no-collect.info_schema.tablestats
+      - --no-collect.info_schema.userstats
+      - --no-collect.perf_schema.eventsstatements
+      - --no-collect.perf_schema.file_events
+      - --no-collect.slave_status
     ports:
       - "9104:9104"
     depends_on:
@@ -121,7 +128,7 @@ services:
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
     ports:
       - "9090:9090"

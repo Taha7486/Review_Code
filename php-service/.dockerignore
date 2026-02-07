@@ -1,21 +1,17 @@
-# Dependencies
-vendor/
-
-# IDE
-.vscode/
-.idea/
-
-# Git
+# Ignore Git folder
 .git/
 .gitignore
-README.md
 
-# Environment
+# Ignore VS Code settings
+.vscode/
+
+# Ignore Dependencies (let Docker install them)
+vendor/
+
+
+# Ignore Secrets
 .env
-.env.example
 
-# Tests
-tests/
-
-# Composer
-composer.phar
+# Ignore Docker related
+Dockerfile
+*.dockerignore

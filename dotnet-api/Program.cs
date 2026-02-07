@@ -248,7 +248,7 @@ app.MapOpenApi();
 app.UseCors("AllowReactApp"); 
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseHttpMetrics(); // 📊 Enable Prometheus HTTP metrics collection
+// app.UseHttpMetrics(); // 📊 DISABLED - Generates 100+ unused ASP.NET metrics (GC, Kestrel, routing, etc.)
 app.MapControllers();
 app.MapHealthChecks("/health"); // 🏥 Add Health Check Endpoint
 app.MapMetrics(); // 📈 Expose Prometheus metrics at /metrics endpoint

@@ -67,41 +67,24 @@ const FileTree = ({ uniqueFiles, filteredIssues, selectedFile, onSelectFile }) =
     return (
         <div className="lg:col-span-1 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col max-h-[calc(100vh-250px)] sticky top-40 shadow-sm transition-colors">
             {/* Header with Stats */}
-            <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50 rounded-t-xl">
-                <div className="flex justify-between items-center mb-3">
-                    <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2 text-sm uppercase tracking-wide">
-                        <FolderTree className="w-4 h-4 text-gray-500" />
-                        File Explorer
-                    </h4>
-                    <div className="flex gap-2 text-xs">
-                        <span className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-full font-medium">
-                            {totalFiles} {totalFiles === 1 ? 'file' : 'files'}
-                        </span>
-                        {totalIssues > 0 && (
-                            <span className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-2 py-0.5 rounded-full font-medium">
-                                {totalIssues} {totalIssues === 1 ? 'issue' : 'issues'}
-                            </span>
-                        )}
-                    </div>
-                </div>
-
+            <div className="p-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/80 rounded-t-xl">
                 {/* Expansion Controls */}
                 <div className="flex gap-2">
                     <button
                         onClick={expandAll}
-                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
-                        title="Expand all folders"
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-indigo-400 hover:text-indigo-600 transition-all shadow-sm"
+                        title="Expand all"
                     >
-                        <Maximize2 className="w-3.5 h-3.5" />
-                        Expand All
+                        <Maximize2 className="w-3 h-3" />
+                        Expand
                     </button>
                     <button
                         onClick={collapseAll}
-                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
-                        title="Collapse all folders"
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-indigo-400 hover:text-indigo-600 transition-all shadow-sm"
+                        title="Collapse all"
                     >
-                        <Minimize2 className="w-3.5 h-3.5" />
-                        Collapse All
+                        <Minimize2 className="w-3 h-3" />
+                        Collapse
                     </button>
                 </div>
             </div>

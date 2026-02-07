@@ -57,19 +57,19 @@ public class GitHubFileService : IGitHubFileService
         _logger.LogInformation("[{CorrelationId}] Starting Zipball retrieval for {Owner}/{Repo} branch {Branch}",
             correlationId, owner, repoName, branchName);
 
-        // Track GitHub rate limit before API call
-        try
-        {
-            var rateLimit = await client.RateLimit.GetRateLimits();
-            _prometheusMetrics.RecordGitHubRateLimit(
-                remaining: rateLimit.Resources.Core.Remaining,
-                limit: rateLimit.Resources.Core.Limit
-            );
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "[{CorrelationId}] Failed to fetch GitHub rate limit", correlationId);
-        }
+        // Track GitHub rate limit before API call - REMOVED (metric not used in dashboard)
+        // try
+        // {
+        //     var rateLimit = await client.RateLimit.GetRateLimits();
+        //     _prometheusMetrics.RecordGitHubRateLimit(
+        //         remaining: rateLimit.Resources.Core.Remaining,
+        //         limit: rateLimit.Resources.Core.Limit
+        //     );
+        // }
+        // catch (Exception ex)
+        // {
+        //     _logger.LogWarning(ex, "[{CorrelationId}] Failed to fetch GitHub rate limit", correlationId);
+        // }
 
         var allFiles = await GetAllFilesFromBranchAsync(owner, repoName, branchName, correlationId, client);
 
