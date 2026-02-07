@@ -20,7 +20,7 @@ const AnalysisView = ({ result, repoUrl, branchName, score, extractRepoName }) =
         const message = (issue.message || issue.Message || '').toLowerCase();
         const ruleId = (issue.ruleId || issue.RuleId || issue.rule || issue.Rule || '').toLowerCase();
 
-        const matchesSeverity = severityFilter === 'all' || severity === severityFilter;
+        const matchesSeverity = severityFilter === 'all' || severity === severityFilter.toLowerCase();
         const matchesCategory = categoryFilter === 'all' || category === categoryFilter.toLowerCase();
         const matchesSearch = !searchQuery ||
             file.includes(searchQuery.toLowerCase()) ||
