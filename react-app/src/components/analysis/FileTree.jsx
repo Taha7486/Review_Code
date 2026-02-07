@@ -61,8 +61,6 @@ const FileTree = ({ uniqueFiles, filteredIssues, selectedFile, onSelectFile }) =
         );
     }
 
-    const totalFiles = uniqueFiles.length;
-    const totalIssues = filteredIssues.length;
 
     return (
         <div className="lg:col-span-1 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col max-h-[calc(100vh-250px)] sticky top-40 shadow-sm transition-colors">
