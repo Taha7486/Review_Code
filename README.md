@@ -12,7 +12,8 @@ A production-ready **Microservices DevOps Platform** that automates code quality
 
 ## 📸 Dashboard & Metrics
 
-*(Screenshots to be added here)*
+<img width="1366" height="720" alt="image" src="https://github.com/user-attachments/assets/4a09b8fc-b0fd-4ba3-bf79-29c5f17a1440" />
+
 
 > **Live Observability:** Real-time visibility into system performance using Prometheus & Grafana.
 
