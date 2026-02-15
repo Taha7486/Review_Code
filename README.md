@@ -32,6 +32,54 @@ A production-ready **Microservices DevOps Platform** that automates code quality
 | **Visualization** | Grafana | `3001` | Operational Dashboards |
 
 ---
+## 🏗️ System Architecture
+```mermaid
+graph TB
+    subgraph "Client Layer"
+        A[👤 User Browser]
+    end
+    
+    subgraph "Frontend Layer"
+        B[⚛️ React Dashboard<br/>Port 3000]
+    end
+    
+    subgraph "Backend Services"
+        C[🔷 .NET API<br/>Orchestrator<br/>Port 5116]
+        D[🐘 PHP Analyzer<br/>Code Analysis<br/>Port 8000]
+    end
+    
+    subgraph "Data Layer"
+        E[(🗄️ MySQL<br/>Port 3306)]
+    end
+    
+    subgraph "Observability Stack"
+        F[📊 Prometheus<br/>Metrics<br/>Port 9090]
+        G[📈 Grafana<br/>Dashboards<br/>Port 3001]
+    end
+    
+    subgraph "External"
+        H[🔗 GitHub API]
+    end
+
+    A -->|HTTP Requests| B
+    B -->|REST API| C
+    C -->|Fetch Code| H
+    C -->|Send Analysis Job| D
+    C -->|Store Results| E
+    D -->|Read/Write| E
+    C -.->|Expose Metrics| F
+    D -.->|Expose Metrics| F
+    F -->|Scrape| G
+    
+    style A fill:#e1f5ff
+    style B fill:#61dafb,color:#000
+    style C fill:#512bd4,color:#fff
+    style D fill:#777bb4,color:#fff
+    style E fill:#00758f,color:#fff
+    style F fill:#e6522c,color:#fff
+    style G fill:#f46800,color:#fff
+    style H fill:#333,color:#fff
+```
 
 ## ✨ Key Features
 
