@@ -80,7 +80,27 @@ graph TB
     style G fill:#f46800,color:#fff
     style H fill:#333,color:#fff
 ```
+### Design Rationale
 
+**Microservices Separation:**
+- **.NET API** handles orchestration, auth, and GitHub integration (stateless, scales horizontally)
+- **PHP Analyzer** isolated for CPU-intensive analysis (can scale independently)
+
+**Observability by Design:**
+- Each service exposes `/metrics` endpoint (Prometheus format)
+- Grafana queries Prometheus for real-time dashboards
+- Custom metrics: `analysis_duration_seconds`, `github_api_calls_total`
+
+**Why Docker Compose Here:**
+- Local development speed (full stack up in 30 seconds)
+- Production deployment would use **EKS + ArgoCD** (see [GitOps docs](docs/gitops.md))
+
+**Data Flow:**
+1. User requests analysis → React sends `POST /analyze`
+2. .NET API validates, fetches branch from GitHub
+3. PHP service receives code, runs complexity/security checks
+4. Results persisted to MySQL, metrics updated
+5. React polls for status, displays results
 ## ✨ Key Features
 
 *   **⚡ Automated Branch Analysis:** Fetches and analyzes any GitHub branch in seconds.
