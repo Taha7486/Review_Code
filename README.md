@@ -34,73 +34,66 @@ A production-ready **Microservices DevOps Platform** that automates code quality
 ---
 ## 🏗️ System Architecture
 ```mermaid
-graph TB
-    subgraph "Client Layer"
-        A[👤 User Browser]
+graph LR
+    subgraph Client
+        A[👤 User]
     end
     
-    subgraph "Frontend Layer"
-        B[⚛️ React Dashboard<br/>Port 3000]
+    subgraph Frontend
+        B[React<br/>Dashboard]
     end
     
-    subgraph "Backend Services"
-        C[🔷 .NET API<br/>Orchestrator<br/>Port 5116]
-        D[🐘 PHP Analyzer<br/>Code Analysis<br/>Port 8000]
+    subgraph Backend
+        C[.NET API<br/>Orchestrator]
+        D[PHP<br/>Analyzer]
     end
     
-    subgraph "Data Layer"
-        E[(🗄️ MySQL<br/>Port 3306)]
+    subgraph Data
+        E[(MySQL)]
     end
     
-    subgraph "Observability Stack"
-        F[📊 Prometheus<br/>Metrics<br/>Port 9090]
-        G[📈 Grafana<br/>Dashboards<br/>Port 3001]
+    subgraph Monitoring
+        F[Prometheus]
+        G[Grafana]
     end
     
-    subgraph "External"
-        H[🔗 GitHub API]
-    end
+    H[GitHub API]
 
-    A -->|HTTP Requests| B
-    B -->|REST API| C
+    A -->|Submit Branch| B
+    B -->|Request Analysis| C
     C -->|Fetch Code| H
-    C -->|Send Analysis Job| D
-    C -->|Store Results| E
-    D -->|Read/Write| E
-    C -.->|Expose Metrics| F
-    D -.->|Expose Metrics| F
-    F -->|Scrape| G
+    C -->|Analyze| D
+    D -->|Store| E
+    E -->|Query| C
+    C -->|Results| B
+    B -->|Display Report| A
     
-    style A fill:#e1f5ff
+    C -.->|metrics| F
+    D -.->|metrics| F
+    F -->|visualize| G
+    
     style B fill:#61dafb,color:#000
     style C fill:#512bd4,color:#fff
     style D fill:#777bb4,color:#fff
     style E fill:#00758f,color:#fff
     style F fill:#e6522c,color:#fff
     style G fill:#f46800,color:#fff
-    style H fill:#333,color:#fff
 ```
-### Design Rationale
 
-**Microservices Separation:**
-- **.NET API** handles orchestration, auth, and GitHub integration (stateless, scales horizontally)
-- **PHP Analyzer** isolated for CPU-intensive analysis (can scale independently)
+### Request Flow
+**User → React → .NET API → PHP Analyzer → MySQL → React → User**
 
-**Observability by Design:**
-- Each service exposes `/metrics` endpoint (Prometheus format)
-- Grafana queries Prometheus for real-time dashboards
-- Custom metrics: `analysis_duration_seconds`, `github_api_calls_total`
+1. User submits GitHub repo/branch
+2. React calls .NET API orchestrator
+3. API fetches code from GitHub, sends to PHP analyzer
+4. Analysis results stored in MySQL
+5. API retrieves results, returns to React
+6. Dashboard displays complexity scores, security issues, and metrics
 
-**Why Docker Compose Here:**
-- Local development speed (full stack up in 30 seconds)
-- Production deployment would use **EKS + ArgoCD** (see [GitOps docs](docs/gitops.md))
-
-**Data Flow:**
-1. User requests analysis → React sends `POST /analyze`
-2. .NET API validates, fetches branch from GitHub
-3. PHP service receives code, runs complexity/security checks
-4. Results persisted to MySQL, metrics updated
-5. React polls for status, displays results
+### Observability
+- Prometheus scrapes `/metrics` from both services
+- Grafana dashboards track: request latency, analysis duration, error rates
+- Custom metrics: `analysis_duration_seconds`, `vulnerabilities_detected_total`
 ## ✨ Key Features
 
 *   **⚡ Automated Branch Analysis:** Fetches and analyzes any GitHub branch in seconds.
