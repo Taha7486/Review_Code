@@ -208,7 +208,7 @@ jobs:
         else
           git add k8s/base
           git commit -m "deploy: update images to $IMAGE_TAG"
-          git push origin deploy
+          git push --force-with-lease origin HEAD:deploy
         fi
 
   test-summary:
