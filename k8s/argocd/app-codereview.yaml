@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/Taha7486/Review_Code.git
-    targetRevision: main
+    targetRevision: deploy
     path: k8s/base
   destination:
     server: https://kubernetes.default.svc

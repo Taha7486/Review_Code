@@ -165,30 +165,69 @@ jobs:
         cache-to: type=gha,mode=max
 
 
+  update-deploy-branch:
+    name: Update deploy manifests
+    runs-on: ubuntu-latest
+    needs: [build-and-push]
+    if: github.ref == 'refs/heads/main'
+    steps:
+    - name: Checkout deploy branch
+      uses: actions/checkout@v4
+      with:
+        ref: deploy
+        fetch-depth: 0
+
+    - name: Configure git
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Update image tags in k8s manifests
+      env:
+        IMAGE_TAG: ${{ env.IMAGE_TAG }}
+        DOCKER_HUB_USERNAME: ${{ env.DOCKER_HUB_USERNAME }}
+      run: |
+        sed -i "s#image: .*/code-review-api:.*#image: ${DOCKER_HUB_USERNAME}/code-review-api:${IMAGE_TAG}#" k8s/base/dotnet-api.yaml
+        sed -i "s#image: .*/code-review-php:.*#image: ${DOCKER_HUB_USERNAME}/code-review-php:${IMAGE_TAG}#" k8s/base/php-service.yaml
+        sed -i "s#image: .*/code-review-frontend:.*#image: ${DOCKER_HUB_USERNAME}/code-review-frontend:${IMAGE_TAG}#" k8s/base/react-app.yaml
+
+    - name: Commit and push changes
+      env:
+        IMAGE_TAG: ${{ env.IMAGE_TAG }}
+      run: |
+        if git diff --quiet; then
+          echo "No changes to commit"
+        else
+          git add k8s/base
+          git commit -m "deploy: update images to $IMAGE_TAG"
+          git push origin deploy
+        fi
+
   test-summary:
     name: Test Summary
     runs-on: ubuntu-latest
-    needs: [test-dotnet, test-php, test-react]
+    needs: [test-dotnet, test-php, test-react, update-deploy-branch]
     if: always()
-    
     steps:
     - name: Check test results
       env:
         DOTNET_RESULT: ${{ needs.test-dotnet.result }}
         PHP_RESULT: ${{ needs.test-php.result }}
         REACT_RESULT: ${{ needs.test-react.result }}
+        DEPLOY_RESULT: ${{ needs.update-deploy-branch.result }}
       run: |
-        echo "## Test Results Summary" >> $GITHUB_STEP_SUMMARY
+        echo "## Pipeline Summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ .NET Tests: $DOTNET_RESULT" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ PHP Tests: $PHP_RESULT" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ React Tests: $REACT_RESULT" >> $GITHUB_STEP_SUMMARY
+        echo "- 🚀 Deploy Branch Update: $DEPLOY_RESULT" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
-        if [[ "$DOTNET_RESULT" == "success" && "$PHP_RESULT" == "success" && "$REACT_RESULT" == "success" ]]; then
-          echo "🎉 All tests passed!" >> $GITHUB_STEP_SUMMARY
+        if [[ "$DOTNET_RESULT" == "success" && "$PHP_RESULT" == "success" && "$REACT_RESULT" == "success" && "$DEPLOY_RESULT" != "failure" ]]; then
+          echo "🎉 All tests passed and deploy branch update did not fail." >> $GITHUB_STEP_SUMMARY
           exit 0
         else
-          echo "❌ Some tests failed!" >> $GITHUB_STEP_SUMMARY
+          echo "❌ Some step failed (tests or deploy branch update)." >> $GITHUB_STEP_SUMMARY
           exit 1
         fi
