@@ -1,0 +1,91 @@
+# Persistent storage for MySQL data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce  # Only one pod can mount (MySQL is single-instance)
+  resources:
+    requests:
+      storage: 5Gi  # 5GB for database
+---
+# Secret for database credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-secret
+type: Opaque
+stringData:
+  MYSQL_ROOT_PASSWORD: "Epitomof1996"  
+  MYSQL_DATABASE: "code_review_tool"
+---
+# MySQL StatefulSet (ensures stable network identity)
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+spec:
+  serviceName: mysql
+  replicas: 1  # MySQL doesn't support multiple replicas without clustering
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:8.0
+        ports:
+        - containerPort: 3306
+          name: mysql
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: MYSQL_ROOT_PASSWORD
+        - name: MYSQL_DATABASE
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: MYSQL_DATABASE
+        volumeMounts:
+        - name: mysql-data
+          mountPath: /var/lib/mysql
+        - name: init-schema
+          mountPath: /docker-entrypoint-initdb.d
+        livenessProbe:  # Restart pod if MySQL crashes
+          exec:
+            command: ["mysqladmin", "ping", "-h", "localhost"]
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:  # Don't route traffic until MySQL is ready
+          exec:
+            command: ["mysqladmin", "ping", "-h", "localhost"]
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      volumes:
+      - name: mysql-data
+        persistentVolumeClaim:
+          claimName: mysql-pvc
+      - name: init-schema
+        configMap:
+          name: mysql-init-schema
+---
+# Service to expose MySQL internally
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+spec:
+  selector:
+    app: mysql
+  ports:
+  - port: 3306
+    targetPort: 3306
+  clusterIP: None  # Headless service for StatefulSet
+---

@@ -1,0 +1,105 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dotnet-secrets
+type: Opaque
+stringData:
+  JWT_SECRET_KEY: "my_super_long_local_dev_jwt_secret_key_for_hmac_sha512_only_not_for_production_1234567890"
+  INTERNAL_SERVICE_SECRET: "svc_bridge_3Fz8Lm2Qk1R" 
+  GITHUB_PAT: "your_github_personal_access_token"  # Optional for private repos
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dotnet-config
+data:
+  DB_HOST: "mysql"  # DNS name of MySQL service
+  DB_PORT: "3306"
+  DB_NAME: "code_review_tool"
+  DB_USER: "root"
+  PHP_ANALYSIS_API_URL: "http://php-service:8000/api/analyze/files"
+  ALLOWED_ORIGINS: "http://localhost:30000"  # change to URL of React app will actually be loaded in the browser
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dotnet-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: dotnet-api
+  template:
+    metadata:
+      labels:
+        app: dotnet-api
+    spec:
+      initContainers:  # Wait for MySQL before starting
+      - name: wait-for-mysql
+        image: busybox:1.28
+        command: ['sh', '-c', 'until nc -z mysql 3306; do echo waiting for mysql; sleep 2; done;']
+      containers:
+      - name: dotnet
+        image: taha7486/code-review-api:latest
+        ports:
+        - containerPort: 5116
+        env:
+        - name: ASPNETCORE_URLS
+          value: "http://+:5116"
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: MYSQL_ROOT_PASSWORD
+        envFrom:
+        - configMapRef:
+            name: dotnet-config
+        - secretRef:
+            name: dotnet-secrets
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5116
+          initialDelaySeconds: 30
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5116
+          initialDelaySeconds: 15
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dotnet-api
+spec:
+  selector:
+    app: dotnet-api
+  ports:
+  - port: 5116
+    targetPort: 5116
+    nodePort: 30116  # Expose for external access
+  type: NodePort
+---
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: code-review-api
+spec:
+  selector:
+    app: dotnet-api  
+  ports:
+    - port: 5116
+      targetPort: 5116
+  type: ClusterIP     
+---

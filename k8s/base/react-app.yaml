@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: react-config
+data:
+  REACT_APP_API_URL: "http://dotnet-api:5116/api"  # Internal cluster DNS
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: react-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: react-app
+  template:
+    metadata:
+      labels:
+        app: react-app
+    spec:
+      containers:
+      - name: react-app
+        image: taha7486/code-review-frontend:latest
+        ports:
+        - containerPort: 80  # Nginx serves on port 80 inside container
+        envFrom:
+        - configMapRef:
+            name: react-config
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: react-app
+spec:
+  selector:
+    app: react-app
+  ports:
+  - port: 80
+    targetPort: 80
+    nodePort: 30000  # Exposed on http://localhost:3000 (kind) or node IP (Civo)
+  type: NodePort  # Makes service accessible outside cluster

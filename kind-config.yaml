@@ -1,0 +1,25 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+  extraPortMappings: # this exposes services to the host machine 
+  # React Frontend
+  - containerPort: 30000
+    hostPort: 3000
+    protocol: TCP
+  # .NET API
+  - containerPort: 30116
+    hostPort: 5116
+    protocol: TCP
+  # Prometheus
+  - containerPort: 30090
+    hostPort: 9090
+    protocol: TCP
+  # Grafana
+  - containerPort: 30001
+    hostPort: 3001
+    protocol: TCP
+  # ArgoCD UI
+  - containerPort: 30080
+    hostPort: 8080
+    protocol: TCP
