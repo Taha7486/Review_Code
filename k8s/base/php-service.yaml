@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: php-service
 spec:
-  replicas: 2  # Run 2 instances for load balancing
+  replicas: 3  # Run 2 instances for load balancing
   selector:
     matchLabels:
       app: php-service

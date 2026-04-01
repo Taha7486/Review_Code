@@ -173,6 +173,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-and-push]
     if: github.ref == 'refs/heads/main'
+    outputs:
+      merge_status: ${{ steps.merge.outputs.merge_status }}
     steps:
     - name: Checkout deploy branch
       uses: actions/checkout@v4
@@ -184,6 +186,25 @@ jobs:
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Merge main into deploy
+      id: merge
+      run: |
+        git fetch origin main
+        merge_status="ok"
+        set +e
+        git merge --no-ff --no-edit origin/main
+        MERGE_EXIT_CODE=$?
+        if [ $MERGE_EXIT_CODE -ne 0 ]; then
+          merge_status="conflict"
+          echo "Merge conflict when merging main into deploy. Please resolve manually."
+          git merge --abort || true
+        fi
+        echo "merge_status=$merge_status" >> $GITHUB_OUTPUT
+        if [ $MERGE_EXIT_CODE -ne 0 ]; then
+          exit 1
+        fi
+        set -e
 
     - name: Update image tags in k8s manifests
       env:
@@ -218,6 +239,7 @@ jobs:
         PHP_RESULT: ${{ needs.test-php.result }}
         REACT_RESULT: ${{ needs.test-react.result }}
         DEPLOY_RESULT: ${{ needs.update-deploy-branch.result }}
+        MERGE_STATUS: ${{ needs.update-deploy-branch.outputs.merge_status }}
       run: |
         echo "## Pipeline Summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
@@ -225,12 +247,17 @@ jobs:
         echo "- ✅ PHP Tests: $PHP_RESULT" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ React Tests: $REACT_RESULT" >> $GITHUB_STEP_SUMMARY
         echo "- 🚀 Deploy Branch Update: $DEPLOY_RESULT" >> $GITHUB_STEP_SUMMARY
+        echo "- 🔀 Merge Status (main -> deploy): ${MERGE_STATUS:-unknown}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
         if [[ "$DOTNET_RESULT" == "success" && "$PHP_RESULT" == "success" && "$REACT_RESULT" == "success" && "$DEPLOY_RESULT" != "failure" ]]; then
           echo "🎉 All tests passed and deploy branch update did not fail." >> $GITHUB_STEP_SUMMARY
           exit 0
         else
-          echo "❌ Some step failed (tests or deploy branch update)." >> $GITHUB_STEP_SUMMARY
+          if [[ "$DEPLOY_RESULT" == "failure" && "$MERGE_STATUS" == "conflict" ]]; then
+            echo "❌ Deploy branch update failed due to a merge conflict when merging main into deploy." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Some step failed (tests or deploy branch update)." >> $GITHUB_STEP_SUMMARY
+          fi
           exit 1
         fi
