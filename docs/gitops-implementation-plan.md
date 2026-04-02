@@ -1,13 +1,13 @@
 # 🚀 GitOps Implementation Plan - CodeReview Microservices to Kubernetes
 
-> **Target Audience**: Students and developers new to Kubernetes production deployments  
-> **Goal**: Migrate from Docker Compose to Kubernetes with ArgoCD for automated GitOps workflows  
-> **Cluster**: kind (local Kubernetes in Docker)  
+> **Target Audience**: Students and developers new to Kubernetes production deployments\
+> **Goal**: Migrate from Docker Compose to Kubernetes with ArgoCD for automated GitOps workflows\
+> **Cluster**: kind (local Kubernetes in Docker)\
 > **Philosophy**: Understanding the **WHY** behind each step, not just copying commands
 
 > 💡 **Note**: This plan is optimized for **kind (local)** clusters. All commands and configurations are kind-specific, with port mappings pre-configured for localhost access.
 
----
+***
 
 ## 📋 Table of Contents
 
@@ -23,13 +23,14 @@
 10. [Testing Checklist](#testing-checklist)
 11. [Troubleshooting Guide](#troubleshooting-guide)
 
----
+***
 
 ## 1. Architecture Overview
 
 ### 🔄 What is GitOps?
 
 GitOps is a **declarative** approach to infrastructure and application deployment where:
+
 - **Git is the single source of truth** for your desired system state
 - **Automated agents** (like ArgoCD) continuously monitor Git and sync changes to your cluster
 - **Changes are auditable** because everything goes through Git commits
@@ -37,6 +38,7 @@ GitOps is a **declarative** approach to infrastructure and application deploymen
 ### 📊 Current vs. Target Architecture
 
 #### **Current State (Docker Compose)**
+
 ```
 Developer → docker-compose.yml → Docker Engine → Containers
           ↓
@@ -44,6 +46,7 @@ Developer → docker-compose.yml → Docker Engine → Containers
 ```
 
 #### **Target State (GitOps with Kubernetes)**
+
 ```
 Developer → Git Commit → GitHub Repository
                           ↓
@@ -56,28 +59,29 @@ Developer → Git Commit → GitHub Repository
 
 ### 🎯 Why This Matters
 
-| Problem with Docker Compose | GitOps Solution |
-|---|---|
-| Manual `docker-compose up` commands | ArgoCD auto-deploys on Git push |
-| No deployment history | Full Git audit trail |
-| Single-host limitation | Multi-node Kubernetes scaling |
-| Difficult rollback | One-click rollback to previous commit |
-| No self-healing | K8s automatically restarts failed pods |
+| Problem with Docker Compose         | GitOps Solution                        |
+| ----------------------------------- | -------------------------------------- |
+| Manual `docker-compose up` commands | ArgoCD auto-deploys on Git push        |
+| No deployment history               | Full Git audit trail                   |
+| Single-host limitation              | Multi-node Kubernetes scaling          |
+| Difficult rollback                  | One-click rollback to previous commit  |
+| No self-healing                     | K8s automatically restarts failed pods |
 
----
+***
 
 ## 2. Prerequisites Checklist
 
 ### ✅ Already Installed (You're Ready!)
 
-| Tool | Purpose | Status |
-|---|---|---|
-| **kubectl** | Kubernetes CLI | ✅ Installed |
-| **ArgoCD CLI** | ArgoCD management | ✅ Installed |
-| **Docker** | Build images + Run kind | ✅ Installed |
-| **Git** | Version control | ✅ Installed |
+| Tool           | Purpose                 | Status      |
+| -------------- | ----------------------- | ----------- |
+| **kubectl**    | Kubernetes CLI          | ✅ Installed |
+| **ArgoCD CLI** | ArgoCD management       | ✅ Installed |
+| **Docker**     | Build images + Run kind | ✅ Installed |
+| **Git**        | Version control         | ✅ Installed |
 
 ### 📝 Verify Your Tools
+
 ```bash
 # Check versions
 kubectl version --client
@@ -87,22 +91,23 @@ git --version
 kind version
 ```
 
----
+***
 
 ### 📦 Docker Image Requirements
 
 Before migrating, you **must** have Docker images for all services:
 
-| Service | Existing Dockerfile | Image Location | Status |
-|---|---|---|---|
-| React Frontend | ✅ `react-app/dockerfile` | Docker Hub | Need to push |
-| .NET API | ✅ `dotnet-api/dockerfile` | Docker Hub | Need to push |
-| PHP Analyzer | ✅ `php-service/Dockerfile` | Docker Hub | Need to push |
-| MySQL | ❌ (use official) | `mysql:8.0` | Ready |
-| Prometheus | ❌ (use official) | `prom/prometheus` | Ready |
-| Grafana | ❌ (use official) | `grafana/grafana` | Ready |
+| Service        | Existing Dockerfile        | Image Location    | Status       |
+| -------------- | -------------------------- | ----------------- | ------------ |
+| React Frontend | ✅ `react-app/dockerfile`   | Docker Hub        | Need to push |
+| .NET API       | ✅ `dotnet-api/dockerfile`  | Docker Hub        | Need to push |
+| PHP Analyzer   | ✅ `php-service/Dockerfile` | Docker Hub        | Need to push |
+| MySQL          | ❌ (use official)           | `mysql:8.0`       | Ready        |
+| Prometheus     | ❌ (use official)           | `prom/prometheus` | Ready        |
+| Grafana        | ❌ (use official)           | `grafana/grafana` | Ready        |
 
 **Action Required:** You already have CI/CD pushing images! Verify they exist:
+
 ```bash
 # Check if your images exist on Docker Hub
 docker pull <your-dockerhub-username>/code-review-api:latest
@@ -110,25 +115,28 @@ docker pull <your-dockerhub-username>/code-review-php:latest
 docker pull <your-dockerhub-username>/code-review-frontend:latest
 ```
 
----
+***
 
 ## Phase 1: Environment Setup (30-60 minutes)
 
 ### 🎯 Goal
+
 Set up a local kind cluster and verify connectivity.
 
 ### ⏱️ Estimated Time: 30-60 minutes
 
----
+***
 
 ### Step 1.1: Install kind (if not already done)
 
 Check if kind is installed:
+
 ```bash
 kind version
 ```
 
 If not installed:
+
 ```powershell
 # Windows (PowerShell as Administrator)
 choco install kind
@@ -139,7 +147,7 @@ kind version
 
 **WHY kind?** It runs Kubernetes inside Docker containers—perfect for local testing without cloud costs.
 
----
+***
 
 ### Step 1.2: Create kind Cluster with Port Mappings
 
@@ -184,16 +192,19 @@ nodes:
 ```
 
 **🔍 WHY this config?**
+
 - `extraPortMappings` expose services from inside the kind cluster to your Windows host
 - Without this, services would only be accessible inside Docker containers
 - Port mappings: `containerPort` (inside K8s) → `hostPort` (your localhost)
 
 **Create the cluster:**
+
 ```bash
 kind create cluster --name codereview --config kind-config.yaml
 ```
 
 **Expected output:**
+
 ```
 Creating cluster "codereview" ...
  ✓ Ensuring node image (kindest/node:v1.27.3) 🖼
@@ -205,7 +216,7 @@ Creating cluster "codereview" ...
 Set kubectl context to "kind-codereview"
 ```
 
----
+***
 
 ### Step 1.3: Verify Cluster Connection
 
@@ -221,19 +232,20 @@ kubectl get pods -n kube-system
 ```
 
 **✅ Success Criteria:**
+
 - `kubectl get nodes` shows 1 node in `Ready` status
-- Control plane URL displayed (https://127.0.0.1:xxxxx)
+- Control plane URL displayed (<https://127.0.0.1:xxxxx>)
 - All kube-system pods in `Running` state
 
 **❌ Common Issues:**
 
-| Error | Cause | Fix |
-|---|---|---|
-| `kind: command not found` | Not in PATH | Restart terminal or add to PATH manually |
-| `Port already allocated` | Another service using the port | Change `hostPort` values in config or stop conflicting service |
-| `failed to create cluster` | Docker not running | Start Docker Desktop |
+| Error                      | Cause                          | Fix                                                            |
+| -------------------------- | ------------------------------ | -------------------------------------------------------------- |
+| `kind: command not found`  | Not in PATH                    | Restart terminal or add to PATH manually                       |
+| `Port already allocated`   | Another service using the port | Change `hostPort` values in config or stop conflicting service |
+| `failed to create cluster` | Docker not running             | Start Docker Desktop                                           |
 
----
+***
 
 ### Step 1.4: Install Metrics Server
 
@@ -253,6 +265,7 @@ kubectl wait --for=condition=available --timeout=60s deployment/metrics-server -
 **WHY?** Metrics Server collects CPU/RAM usage from nodes and pods—useful for debugging resource issues.
 
 **Verify it works:**
+
 ```bash
 # Wait 30 seconds for metrics to populate, then check
 Start-Sleep -Seconds 30
@@ -260,16 +273,18 @@ kubectl top nodes
 ```
 
 **Expected output:**
+
 ```
 NAME                       CPU(cores)   CPU%   MEMORY(bytes)   MEMORY%   
 codereview-control-plane   120m         3%     650Mi           16%
 ```
 
 **✅ Success Criteria:**
+
 - `kubectl top nodes` shows CPU and memory metrics
 - No "metrics not available" error
 
----
+***
 
 ### Step 1.5: Set Default Namespace (Optional)
 
@@ -279,40 +294,43 @@ To avoid typing `-n default` every time:
 kubectl config set-context --current --namespace=default
 ```
 
----
+***
 
 ## Phase 2: Convert Services to Kubernetes (4-6 hours)
 
 ### 🎯 Goal
+
 Transform Docker Compose services into Kubernetes manifests (Deployments, Services, ConfigMaps, Secrets).
 
 ### ⏱️ Estimated Time: 4-6 hours
 
 ### 📖 Key Concepts
 
-| Docker Compose | Kubernetes Equivalent | Purpose |
-|---|---|---|
-| `services:` | **Deployment** | Defines how to run containers (image, replicas, env vars) |
-| `ports:` | **Service** | Network endpoint to access pods |
-| `environment:` | **ConfigMap/Secret** | Store configuration (ConfigMap=plain, Secret=sensitive) |
-| `volumes:` | **PersistentVolumeClaim** | Persistent storage that survives pod restarts |
-| `depends_on:` | **N/A** | K8s has no built-in dependency—use init containers or readiness probes |
+| Docker Compose | Kubernetes Equivalent     | Purpose                                                                |
+| -------------- | ------------------------- | ---------------------------------------------------------------------- |
+| `services:`    | **Deployment**            | Defines how to run containers (image, replicas, env vars)              |
+| `ports:`       | **Service**               | Network endpoint to access pods                                        |
+| `environment:` | **ConfigMap/Secret**      | Store configuration (ConfigMap=plain, Secret=sensitive)                |
+| `volumes:`     | **PersistentVolumeClaim** | Persistent storage that survives pod restarts                          |
+| `depends_on:`  | **N/A**                   | K8s has no built-in dependency—use init containers or readiness probes |
 
----
+***
 
 ### Step 2.1: Create Folder Structure
+
 ```bash
 cd Review_Code
 mkdir -p k8s/{base,overlays/dev}
 ```
 
 **WHY this structure?**
+
 - `base/`: Core manifests shared across environments
 - `overlays/dev/`: Development-specific overrides
 
 **We'll start simple** (no Kustomize yet) and put everything in `k8s/base/`.
 
----
+***
 
 ### Step 2.2: Start with 3 Core Services
 
@@ -323,11 +341,12 @@ We'll deploy in this order (simplest → most complex):
 3. **React Frontend** (stateless, simple)
 
 **WHY this order?**
+
 - MySQL is the foundation (dependencies need it)
 - PHP and Frontend are simpler to debug
 - .NET API comes later (most complex, depends on all services)
 
----
+***
 
 ### 📝 Service 1: MySQL Database
 
@@ -439,15 +458,15 @@ data:
 
 **🔍 WHY these choices?**
 
-| Choice | Reason |
-|---|---|
-| **StatefulSet** (not Deployment) | MySQL needs stable hostname and ordered startup/shutdown |
-| **PersistentVolumeClaim** | Data must survive pod restarts (otherwise you lose your database!) |
-| **Secret** (not ConfigMap) | Passwords should never be in plaintext |
-| **Headless Service** (`clusterIP: None`) | StatefulSets need predictable DNS names like `mysql-0.mysql` |
-| **readinessProbe** | Prevents traffic before MySQL is ready to accept connections |
+| Choice                                   | Reason                                                             |
+| ---------------------------------------- | ------------------------------------------------------------------ |
+| **StatefulSet** (not Deployment)         | MySQL needs stable hostname and ordered startup/shutdown           |
+| **PersistentVolumeClaim**                | Data must survive pod restarts (otherwise you lose your database!) |
+| **Secret** (not ConfigMap)               | Passwords should never be in plaintext                             |
+| **Headless Service** (`clusterIP: None`) | StatefulSets need predictable DNS names like `mysql-0.mysql`       |
+| **readinessProbe**                       | Prevents traffic before MySQL is ready to accept connections       |
 
----
+***
 
 ### 📝 Service 2: PHP Analyzer
 
@@ -512,14 +531,14 @@ spec:
 
 **🔍 WHY these choices?**
 
-| Choice | Reason |
-|---|---|
-| **Deployment** (not StatefulSet) | PHP is stateless—pods are interchangeable |
-| **2 replicas** | Load balancing + high availability (if one crashes, another serves requests) |
-| **ClusterIP Service** | Only .NET API needs to access PHP—no external exposure needed |
-| **Resource limits** | Prevents memory leaks from crashing the node |
+| Choice                           | Reason                                                                       |
+| -------------------------------- | ---------------------------------------------------------------------------- |
+| **Deployment** (not StatefulSet) | PHP is stateless—pods are interchangeable                                    |
+| **2 replicas**                   | Load balancing + high availability (if one crashes, another serves requests) |
+| **ClusterIP Service**            | Only .NET API needs to access PHP—no external exposure needed                |
+| **Resource limits**              | Prevents memory leaks from crashing the node                                 |
 
----
+***
 
 ### 📝 Service 3: React Frontend
 
@@ -592,13 +611,13 @@ spec:
 
 **🔍 WHY these choices?**
 
-| Choice | Reason |
-|---|---|
-| **NodePort Service** | Users need to access frontend from browsers (external access required) |
-| **ConfigMap for env vars** | Frontend needs to know API URL—ConfigMap makes it configurable |
-| **Port 80 inside container** | Your Dockerfile builds with Nginx serving on port 80 |
+| Choice                       | Reason                                                                 |
+| ---------------------------- | ---------------------------------------------------------------------- |
+| **NodePort Service**         | Users need to access frontend from browsers (external access required) |
+| **ConfigMap for env vars**   | Frontend needs to know API URL—ConfigMap makes it configurable         |
+| **Port 80 inside container** | Your Dockerfile builds with Nginx serving on port 80                   |
 
----
+***
 
 ### Step 2.3: Apply and Verify
 
@@ -619,19 +638,20 @@ kubectl get svc
 ```
 
 **✅ Success Criteria:**
+
 - All pods show `Running` status with `READY 1/1`
 - `kubectl logs <pod-name>` shows no errors
 - MySQL pod logs show "ready for connections"
 
 **❌ Common Issues:**
 
-| Error | Cause | Fix |
-|---|---|---|
-| `ImagePullBackOff` | Image doesn doesn't exist on Docker Hub | Verify image name with `docker pull <image>` |
-| `CrashLoopBackOff` | App crashes on startup | Check logs: `kubectl logs <pod-name>` |
-| `Pending` (PVC) | No storage provisioner (kind) | kind has one built-in—wait 30s and check `kubectl get pvc` |
+| Error              | Cause                                   | Fix                                                        |
+| ------------------ | --------------------------------------- | ---------------------------------------------------------- |
+| `ImagePullBackOff` | Image doesn doesn't exist on Docker Hub | Verify image name with `docker pull <image>`               |
+| `CrashLoopBackOff` | App crashes on startup                  | Check logs: `kubectl logs <pod-name>`                      |
+| `Pending` (PVC)    | No storage provisioner (kind)           | kind has one built-in—wait 30s and check `kubectl get pvc` |
 
----
+***
 
 ### Step 2.4: Test Connectivity
 
@@ -643,11 +663,12 @@ kubectl port-forward svc/react-app 3000:80
 # You should see the React app (might show errors due to missing .NET API)
 ```
 
----
+***
 
 ## Phase 3: Install and Configure ArgoCD (1-2 hours)
 
 ### 🎯 Goal
+
 Install ArgoCD in your kind cluster and configure it to watch your GitHub repository.
 
 ### ⏱️ Estimated Time: 1-2 hours
@@ -655,12 +676,13 @@ Install ArgoCD in your kind cluster and configure it to watch your GitHub reposi
 ### 📖 What is ArgoCD?
 
 ArgoCD is a **Kubernetes controller** that:
+
 1. **Watches** your Git repository for changes to Kubernetes manifests
 2. **Compares** the live cluster state with the desired Git state
 3. **Syncs** differences automatically (or manually if you prefer)
 4. **Provides a UI** to visualize deployments and history
 
----
+***
 
 ### Step 3.1: Install ArgoCD
 
@@ -677,7 +699,7 @@ kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -
 
 **🔍 WHY a separate namespace?** Keeps ArgoCD isolated from your application.
 
----
+***
 
 ### Step 3.2: Expose ArgoCD UI
 
@@ -709,12 +731,13 @@ kubectl patch svc argocd-server -n argocd -p '{
 ```
 
 **Access ArgoCD UI:**
-- **HTTP**: http://localhost:8080 (mapped via kind config)
-- **HTTPS**: https://localhost:8080 (self-signed cert, ignore browser warning)
+
+- **HTTP**: <http://localhost:8080> (mapped via kind config)
+- **HTTPS**: <https://localhost:8080> (self-signed cert, ignore browser warning)
 
 **🔍 WHY NodePort 30080?** This matches the port mapping we defined in `kind-config.yaml`, which forwards `containerPort: 30080` to `hostPort: 8080` on your Windows machine.
 
----
+***
 
 ### Step 3.3: Get Initial Admin Password
 
@@ -729,12 +752,14 @@ argocd admin initial-password -n argocd
 **Copy the password** that's displayed.
 
 **Login to ArgoCD UI:**
-1. Open http://localhost:8080
+
+1. Open <http://localhost:8080>
 2. Username: `admin`
 3. Password: (from command above)
 4. Click "Sign In"
 
 **🔒 Security Tip:** Change password immediately:
+
 ```bash
 # Login via CLI first
 argocd login localhost:8080 --insecure
@@ -743,11 +768,12 @@ argocd login localhost:8080 --insecure
 argocd account update-password
 ```
 
----
+***
 
 ### Step 3.4: Connect GitHub Repository
 
 #### Option A: Public Repository (Easier)
+
 ```bash
 argocd login localhost:8080 --insecure
 
@@ -755,6 +781,7 @@ argocd repo add https://github.com/<your-username>/Review_Code
 ```
 
 #### Option B: Private Repository
+
 ```bash
 # Generate a GitHub Personal Access Token
 # Go to: Settings → Developer Settings → Personal Access Tokens → Tokens (classic)
@@ -766,16 +793,19 @@ argocd repo add https://github.com/<your-username>/Review_Code \
 ```
 
 **✅ Verify:**
+
 ```bash
 argocd repo list
 ```
+
 Should show `CONNECTION STATUS: Successful`
 
 **Or verify in UI:**
+
 - Go to Settings → Repositories
 - Should show your repo with green checkmark
 
----
+***
 
 ### Step 3.5: Create ArgoCD Application
 
@@ -819,23 +849,25 @@ spec:
 
 **🔍 Key Settings Explained:**
 
-| Setting | Purpose |
-|---|---|
-| `automated.prune: true` | If you delete a manifest from Git, ArgoCD deletes it from K8s |
+| Setting                    | Purpose                                                         |
+| -------------------------- | --------------------------------------------------------------- |
+| `automated.prune: true`    | If you delete a manifest from Git, ArgoCD deletes it from K8s   |
 | `automated.selfHeal: true` | If someone runs `kubectl delete`, ArgoCD recreates the resource |
-| `targetRevision: HEAD` | Always sync from the latest commit |
-| `retry.limit: 5` | Retry failed syncs 5 times before giving up |
+| `targetRevision: HEAD`     | Always sync from the latest commit                              |
+| `retry.limit: 5`           | Retry failed syncs 5 times before giving up                     |
 
 **Apply the application:**
+
 ```bash
 kubectl apply -f k8s/argocd-app.yaml
 ```
 
 **✅ Success Criteria:**
+
 - ArgoCD UI shows `codereview-app` with status `Synced` and `Healthy`
 - All resources appear in the UI's tree view
 
----
+***
 
 ### Step 3.6: Verify ArgoCD is Watching
 
@@ -848,21 +880,23 @@ argocd app wait codereview-app --sync
 ```
 
 **Expected output:**
+
 ```
 Health Status:      Healthy
 Sync Status:        Synced
 ```
 
----
+***
 
 ## Phase 4: Deploy Application (2-4 hours)
 
 ### 🎯 Goal
+
 Deploy the remaining services (.NET API, Prometheus, Grafana) and configure them properly.
 
 ### ⏱️ Estimated Time: 2-4 hours
 
----
+***
 
 ### Step 4.1: Deploy .NET API
 
@@ -963,10 +997,11 @@ spec:
 ```
 
 **🔍 WHY initContainer?**
+
 - Without it, the .NET API would crash trying to connect to MySQL before it's ready
 - `initContainers` run **before** the main container and must complete successfully
 
----
+***
 
 ### Step 4.2: Deploy Monitoring Stack
 
@@ -1103,7 +1138,7 @@ spec:
   type: NodePort
 ```
 
----
+***
 
 ### Step 4.3: Commit and Push to GitHub
 
@@ -1116,7 +1151,7 @@ git push origin main
 
 **🎯 This is where GitOps magic happens!**
 
----
+***
 
 ### Step 4.4: Watch ArgoCD Auto-Deploy
 
@@ -1129,11 +1164,12 @@ kubectl get pods -w
 ```
 
 **✅ Success Criteria:**
+
 - ArgoCD UI shows new resources appearing
 - All pods reach `Running` state
 - Applications are accessible at configured NodePorts
 
----
+***
 
 ### Step 4.5: Verify All Services
 
@@ -1159,16 +1195,17 @@ curl http://localhost:9090/-/healthy
 curl http://localhost:3001/api/health
 ```
 
----
+***
 
 ## Phase 5: Test GitOps Workflow (1-2 hours)
 
 ### 🎯 Goal
+
 Verify that changes pushed to Git automatically deploy to Kubernetes.
 
 ### ⏱️ Estimated Time: 1-2 hours
 
----
+***
 
 ### Test 1: Update React Frontend Replicas
 
@@ -1182,17 +1219,19 @@ git push origin main
 ```
 
 **Watch ArgoCD:**
+
 ```bash
 argocd app get codereview-app --refresh
 kubectl get pods -l app=react-app -w
 ```
 
 **✅ Success Criteria:**
+
 - Within 3 minutes (default sync interval), ArgoCD detects change
 - UI shows "OutOfSync" → "Syncing" → "Synced"
 - `kubectl get pods` shows 3 React pods
 
----
+***
 
 ### Test 2: Update Environment Variable
 
@@ -1206,6 +1245,7 @@ git push origin main
 ```
 
 **Verify:**
+
 ```bash
 # Watch deployment rollout
 kubectl rollout status deployment/dotnet-api
@@ -1215,10 +1255,11 @@ kubectl exec -it deployment/dotnet-api -- env | grep ALLOWED_ORIGINS
 ```
 
 **✅ Success Criteria:**
+
 - Deployment performs rolling update (zero downtime)
 - New pods have updated environment variables
 
----
+***
 
 ### Test 3: Demonstrate Rollback
 
@@ -1233,22 +1274,25 @@ git push origin main
 ```
 
 **Wait for failure:**
+
 ```bash
 kubectl get pods -l app=dotnet-api -w
 # Pods will show ImagePullBackOff
 ```
 
 **Rollback via Git:**
+
 ```bash
 git revert HEAD  # Undo last commit
 git push origin main
 ```
 
 **✅ Success Criteria:**
+
 - ArgoCD detects revert and syncs previous working state
 - Pods recover within 2-3 minutes
 
----
+***
 
 ### Test 4: Self-Healing Demo
 
@@ -1261,19 +1305,21 @@ kubectl get pods -l app=php-service -w
 ```
 
 **✅ Success Criteria:**
+
 - New pod appears within 10 seconds (due to `selfHeal: true`)
 - ArgoCD UI shows brief "OutOfSync" then "Synced"
 
----
+***
 
 ## Phase 6: Documentation and Validation (2-3 hours)
 
 ### 🎯 Goal
+
 Document your setup, capture screenshots for your portfolio, and create a presentation-ready demo.
 
 ### ⏱️ Estimated Time: 2-3 hours
 
----
+***
 
 ### Step 6.1: Create Architecture Diagram
 
@@ -1305,7 +1351,7 @@ Developer → Git Push → GitHub Repo
               Pods updated automatically
 ```
 
----
+***
 
 ### Step 6.2: Capture Screenshots
 
@@ -1315,26 +1361,23 @@ Developer → Git Push → GitHub Repo
    ```bash
    # Access UI and screenshot the main app view
    ```
-
 2. **Grafana Dashboard** with metrics
    ```bash
    # Create a dashboard showing request rates
    # Screenshot the dashboard
    ```
-
 3. **GitOps Workflow** (before/after Git push)
    ```bash
    # Screenshot: ArgoCD showing "OutOfSync"
    # Screenshot: ArgoCD showing "Synced" after auto-deploy
    ```
-
 4. **kubectl Output**
    ```bash
    kubectl get all -o wide
    # Screenshot terminal showing all resources running
    ```
 
----
+***
 
 ### Step 6.3: Create Demo Script
 
@@ -1368,13 +1411,13 @@ Create `docs/demo-script.md` for showcasing:
 - ArgoCD: Show auto-recreation within 10 seconds
 ```
 
----
+***
 
 ### Step 6.4: Update README
 
 Add to your main `README.md`:
 
-```markdown
+````markdown
 ## 🚢 Kubernetes & GitOps Deployment
 
 This project now supports **production-grade Kubernetes deployments** with **ArgoCD GitOps automation**.
@@ -1393,16 +1436,19 @@ kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/st
 
 # 3. Connect repo and auto-deploy
 kubectl apply -f k8s/argocd-app.yaml
-```
+````
 
 ### GitOps Features
+
 - ✅ **Automated Deployments**: Git push triggers automatic sync to cluster
 - ✅ **Self-Healing**: Manual changes auto-reverted to Git state
 - ✅ **One-Click Rollback**: Revert Git commit to undo deployments
 - ✅ **Multi-Environment Ready**: Kustomize overlays for dev/staging/prod
 
 ### Architecture
+
 See [K8s Architecture Docs](docs/k8s-architecture.md) for detailed diagrams.
+
 ```
 
 ---
@@ -1463,32 +1509,34 @@ See [K8s Architecture Docs](docs/k8s-architecture.md) for detailed diagrams.
 **Decision Tree:**
 
 ```
+
 Is the value sensitive (password, API key)?
-  ├─ YES → Use Secret
-  │         apiVersion: v1
-  │         kind: Secret
-  │         type: Opaque
-  │         stringData:
-  │           KEY: "value"
-  │
-  └─ NO → Is it environment-specific (URLs, replicas)?
-      ├─ YES → Use Kustomize overlay
-      │         # overlays/dev/kustomization.yaml
-      │         patches:
-      │         - target:
-      │             kind: ConfigMap
-      │             name: myconfig
-      │           patch: |-
-      │             - op: replace
-      │               path: /data/API_URL
-      │               value: "http://dev-api:5116"
-      │
-      └─ NO → Use ConfigMap
-                apiVersion: v1
-                kind: ConfigMap
-                data:
-                  KEY: "value"
-```
+├─ YES → Use Secret
+│         apiVersion: v1
+│         kind: Secret
+│         type: Opaque
+│         stringData:
+│           KEY: "value"
+│
+└─ NO → Is it environment-specific (URLs, replicas)?
+├─ YES → Use Kustomize overlay
+│         # overlays/dev/kustomization.yaml
+│         patches:
+│         - target:
+│             kind: ConfigMap
+│             name: myconfig
+│           patch: |-
+│             - op: replace
+│               path: /data/API\_URL
+│               value: "<http://dev-api:5116>"
+│
+└─ NO → Use ConfigMap
+apiVersion: v1
+kind: ConfigMap
+data:
+KEY: "value"
+
+````
 
 **Best Practices:**
 - ❌ **Never commit secrets to Git** (use sealed-secrets or external secret operators)
@@ -1523,9 +1571,9 @@ kubectl exec -it <pod-name> -- /bin/sh
 
 # Test internal DNS
 kubectl run test --image=busybox --rm -it -- nslookup mysql
-```
+````
 
----
+***
 
 ### ✅ Phase 3: ArgoCD Installation
 
@@ -1536,6 +1584,7 @@ kubectl run test --image=busybox --rm -it -- nslookup mysql
 - [ ] Initial sync completes without errors
 
 **Debugging Commands:**
+
 ```bash
 # Check ArgoCD pods
 kubectl get pods -n argocd
@@ -1550,7 +1599,7 @@ argocd app get codereview-app
 argocd app sync codereview-app
 ```
 
----
+***
 
 ### ✅ Phase 5: GitOps Workflow
 
@@ -1560,6 +1609,7 @@ argocd app sync codereview-app
 - [ ] **Config Change Test**: ConfigMap update triggers pod restart
 
 **Validation:**
+
 ```bash
 # Verify auto-sync is enabled
 kubectl get application codereview-app -n argocd -o yaml | grep automated
@@ -1571,7 +1621,7 @@ argocd app wait codereview-app --sync --health --timeout 300
 kubectl get events --sort-by='.metadata.creationTimestamp' | grep <deleted-pod-name>
 ```
 
----
+***
 
 ### ✅ Production Readiness (Advanced)
 
@@ -1583,7 +1633,7 @@ kubectl get events --sort-by='.metadata.creationTimestamp' | grep <deleted-pod-n
 - [ ] Prometheus scraping custom application metrics
 - [ ] Grafana dashboard showing request latency, error rates
 
----
+***
 
 ## Troubleshooting Guide
 
@@ -1594,11 +1644,13 @@ kubectl get events --sort-by='.metadata.creationTimestamp' | grep <deleted-pod-n
 **Cause:** Kubernetes cannot pull the Docker image.
 
 **Diagnosis:**
+
 ```bash
 kubectl describe pod <pod-name> | grep -A 5 "Failed to pull image"
 ```
 
 **Fixes:**
+
 - **Image doesn't exist**: Verify with `docker pull <image-name>:tag`
 - **Private image**: Create an image pull secret:
   ```bash
@@ -1606,7 +1658,7 @@ kubectl describe pod <pod-name> | grep -A 5 "Failed to pull image"
     --docker-server=https://index.docker.io/v1/ \
     --docker-username=<username> \
     --docker-password=<password>
-  
+
   # Add to deployment:
   spec:
     template:
@@ -1616,23 +1668,26 @@ kubectl describe pod <pod-name> | grep -A 5 "Failed to pull image"
   ```
 - **Wrong tag**: Check your CI/CD pushed the correct tag
 
----
+***
 
 #### 2. Pods in `CrashLoopBackOff`
 
 **Cause:** Application crashes on startup.
 
 **Diagnosis:**
+
 ```bash
 kubectl logs <pod-name> --previous  # View logs from crashed container
 ```
 
 **Common Causes:**
+
 - **Missing env var**: Check `kubectl describe pod <pod-name>` for env vars
 - **Database connection failure**: Ensure MySQL is running and accessible
 - **Port already in use**: Check for duplicate services
 
 **Fix Example (missing MySQL password):**
+
 ```yaml
 # Add to deployment:
 env:
@@ -1643,13 +1698,14 @@ env:
       key: MYSQL_ROOT_PASSWORD
 ```
 
----
+***
 
 #### 3. Service Not Accessible (Connection Refused)
 
 **Cause:** Service selector doesn't match pod labels.
 
 **Diagnosis:**
+
 ```bash
 # Check service endpoints
 kubectl get endpoints <service-name>
@@ -1658,6 +1714,7 @@ kubectl get endpoints <service-name>
 ```
 
 **Fix:**
+
 ```yaml
 # Service selector must match Pod labels EXACTLY
 apiVersion: v1
@@ -1669,43 +1726,47 @@ spec:
     app: myapp  # Must match pod label "app: myapp"
 ```
 
----
+***
 
 #### 4. PersistentVolumeClaim Stuck in `Pending`
 
 **Cause:** No storage class available (common in kind).
 
 **Diagnosis:**
+
 ```bash
 kubectl get pvc
 kubectl describe pvc mysql-pvc
 ```
 
 **Fixes:**
+
 - **kind**: Built-in storage class should auto-provision. Wait 30 seconds.
 - **Civo**: Ensure you have block storage quota
 - **Manual provisioning** (kind workaround):
   ```bash
   # Check if storage class exists
   kubectl get storageclass
-  
+
   # If none, create one
   kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/master/deploy/local-path-storage.yaml
   ```
 
----
+***
 
 #### 5. ArgoCD Shows `OutOfSync` Permanently
 
 **Cause:** Drift between Git and cluster state.
 
 **Diagnosis:**
+
 ```bash
 argocd app diff codereview-app  # Show differences
 ```
 
 **Fixes:**
-- **Someone ran `kubectl apply` manually**: ArgoCD detects manual changes. Click "Sync" to reconcile.
+
+- **Someone ran** **`kubectl apply`** **manually**: ArgoCD detects manual changes. Click "Sync" to reconcile.
 - **Self-heal disabled**: Enable in Application spec:
   ```yaml
   syncPolicy:
@@ -1722,13 +1783,14 @@ argocd app diff codereview-app  # Show differences
       - /data
   ```
 
----
+***
 
 #### 6. MySQL Data Lost After Pod Restart
 
 **Cause:** Using `emptyDir` instead of `PersistentVolumeClaim`.
 
 **Fix:**
+
 ```yaml
 # WRONG:
 volumes:
@@ -1742,19 +1804,21 @@ volumes:
     claimName: mysql-pvc  # Persistent storage—data survives restarts
 ```
 
----
+***
 
 #### 7. .NET API Can't Connect to MySQL
 
 **Cause:** MySQL not ready when API starts, or wrong hostname.
 
 **Diagnosis:**
+
 ```bash
 kubectl exec -it <dotnet-pod> -- ping mysql
 # Should resolve to MySQL service IP
 ```
 
 **Fixes:**
+
 - **Add initContainer** to wait for MySQL:
   ```yaml
   initContainers:
@@ -1764,13 +1828,14 @@ kubectl exec -it <dotnet-pod> -- ping mysql
   ```
 - **Check service name**: Use `mysql` (not `mysql.default.svc.cluster.local` unless in different namespace)
 
----
+***
 
 #### 8. ArgoCD Can't Access Private GitHub Repo
 
 **Cause:** No credentials provided.
 
 **Fix:**
+
 ```bash
 # Generate GitHub Personal Access Token (needs 'repo' scope)
 # Then add to ArgoCD:
@@ -1780,7 +1845,7 @@ argocd repo add https://github.com/<username>/<repo> \
   --password <github-pat>
 ```
 
----
+***
 
 ## Next Steps (Beyond this Plan)
 
@@ -1791,83 +1856,85 @@ Once you've completed all 6 phases, consider these advanced topics:
 1. **Ingress Controller** (Production Domains)
    - Replace NodePort with Ingress (Nginx/Traefik)
    - Add TLS certificates (cert-manager + Let's Encrypt)
-   - Configure custom domains (codereview.yourdomain.com)
-
+   - Configure custom domains (codereview\.yourdomain.com)
 2. **Multi-Environment Setup**
    - Use Kustomize overlays for dev/staging/prod
    - Different replica counts per environment
    - Separate namespaces per environment
-
 3. **Advanced Secrets Management**
    - [Sealed Secrets](https://github.com/bitnami-labs/sealed-secrets) (encrypt secrets in Git)
    - [External Secrets Operator](https://external-secrets.io/) (AWS Secrets Manager, Azure Key Vault)
-
 4. **Database Backups**
    - Create a CronJob to backup MySQL to S3
    - Test restore procedure
-
 5. **Helm Chart Packaging**
    - Convert manifests to Helm chart
    - Publish to Artifact Hub for reusability
-
 6. **Progressive Delivery**
    - [Argo Rollouts](https://argoproj.github.io/argo-rollouts/) for canary deployments
    - Blue/green deployments
-
 7. **Observability Upgrades**
    - Add distributed tracing (Jaeger/Tempo)
    - Centralized logging (ELK stack or Loki)
    - Custom Grafana dashboards
 
----
+***
 
 ## 📚 Learning Resources
 
 ### Official Documentation
+
 - [Kubernetes Docs](https://kubernetes.io/docs/): Complete K8s reference
 - [ArgoCD Docs](https://argo-cd.readthedocs.io/): GitOps workflows
 - [Kustomize](https://kustomize.io/): Configuration management
 
 ### Video Tutorials
+
 - [TechWorld with Nana - Kubernetes Tutorial for Beginners](https://www.youtube.com/watch?v=X48VuDVv0do)
 - [DevOps Toolkit - ArgoCD Tutorial](https://www.youtube.com/watch?v=MeU5_k9ssrs)
 
 ### Interactive Learning
+
 - [Kubernetes by Example](https://kubernetesbyexample.com/): Hands-on exercises
 - [KillerCoda Kubernetes Playground](https://killercoda.com/kubernetes): Free K8s cluster in browser
 
 ### GitOps Best Practices
+
 - [GitOps Principles](https://opengitops.dev/): Official GitOps standards
 - [CNCF GitOps Working Group](https://github.com/cncf/tag-app-delivery): Community best practices
 
----
+***
 
 ## 🎓 Summary: What You've Learned
 
 By completing this plan, you've gained hands-on experience with:
 
 ✅ **Kubernetes Fundamentals**
+
 - Deployments, Services, ConfigMaps, Secrets, PersistentVolumeClaims
 - Pod lifecycle management (liveness/readiness probes)
 - Resource limits and requests
 
 ✅ **GitOps Methodology**
+
 - Declarative infrastructure as code
 - Automated deployments via Git commits
 - Self-healing and drift detection
 
 ✅ **Production Skills**
+
 - Stateful vs. stateless workloads
 - Service discovery and DNS
 - Rolling updates and rollbacks
 - Observability (Prometheus + Grafana)
 
 ✅ **Real-World DevOps**
+
 - CI/CD integration (GitHub Actions → Docker Hub → K8s)
 - Multi-service orchestration
 - Debugging distributed systems
 
----
+***
 
 ## 📝 Final Checklist
 
@@ -1882,7 +1949,7 @@ Before calling this project complete:
 - [ ] Architecture diagram created
 - [ ] Demo script rehearsed (can explain to interviewer)
 
----
+***
 
 ## 🎉 Congratulations!
 
@@ -1893,18 +1960,26 @@ You've migrated a multi-service microservices application from Docker Compose to
 - Problem-solving in distributed systems
 
 **Share your work:**
+
 - Add this to your GitHub with detailed README
 - Write a blog post about your learning journey
 - Include in your resume/portfolio as a capstone project
 
-**Companies that use ArgoCD + Kubernetes:**  
+**Companies that use ArgoCD + Kubernetes:**\
 Google, Red Hat, Intuit, Adobe, Salesforce, Tesla... and now **YOU**! 🚀
 
----
+***
 
 **Need Help?** Open an issue on your GitHub repo or ask in:
+
 - [Kubernetes Slack](https://kubernetes.slack.com/) (#beginners channel)
 - [ArgoCD Community](https://argoproj.github.io/community/)
 - Stack Overflow with tag `[kubernetes]` or `[argocd]`
 
 Good luck with your GitOps journey! 🎯
+
+***
+
+### 💡 Note on Monitoring Persistence
+
+Currently, the monitoring stack (Prometheus and Grafana) uses `emptyDir` for storage. This means all historical metrics and custom dashboard changes will be lost if the pods restart or the cluster is recreated. To fix this, you should later implement **PersistentVolumeClaims (PVCs)** for both services, similar to how the MySQL database is configured.

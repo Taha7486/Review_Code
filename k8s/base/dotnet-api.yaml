@@ -19,7 +19,7 @@ data:
   DB_NAME: "code_review_tool"
   DB_USER: "root"
   PHP_ANALYSIS_API_URL: "http://php-service:8000/api/analyze/files"
-  ALLOWED_ORIGINS: "http://localhost:30000"  # change to URL of React app will actually be loaded in the browser
+  ALLOWED_ORIGINS: "http://test-recap.local"  # change to URL of React app will actually be loaded in the browser
 ---
 apiVersion: apps/v1
 kind: Deployment
