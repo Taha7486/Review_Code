@@ -41,7 +41,7 @@ data:
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "code_review_analyses_started_total{status=\"started\"}",
+              "expr": "sum(code_review_analyses_started_total{status=\"started\"})",
               "legendFormat": "Analyses",
               "refId": "A"
             }
@@ -73,7 +73,7 @@ data:
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "php_files_analyzed_total",
+              "expr": "sum(php_files_analyzed_total)",
               "legendFormat": "Files",
               "refId": "A"
             }
@@ -143,7 +143,7 @@ data:
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "histogram_quantile(0.95, code_review_analysis_duration_seconds_bucket) * 1000",
+              "expr": "histogram_quantile(0.95, sum by (le) (rate(code_review_analysis_duration_seconds_bucket[5m]))) * 1000",
               "legendFormat": "P95",
               "refId": "A"
             }
@@ -279,19 +279,19 @@ data:
             },
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "sum(code_review_issues_found_total{severity=\"high\"})",
+              "expr": "sum(code_review_issues_found_total{severity=\"major\"})",
               "legendFormat": "high",
               "refId": "B"
             },
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "sum(code_review_issues_found_total{severity=\"medium\"})",
+              "expr": "sum(code_review_issues_found_total{severity=\"minor\"})",
               "legendFormat": "medium",
               "refId": "C"
             },
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "sum(code_review_issues_found_total{severity=\"low\"})",
+              "expr": "sum(code_review_issues_found_total{severity=\"info\"})",
               "legendFormat": "low",
               "refId": "D"
             }
@@ -313,4 +313,3 @@ data:
       "version": 1,
       "weekStart": ""
     }
----
