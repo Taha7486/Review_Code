@@ -34,6 +34,10 @@ spec:
     metadata:
       labels:
         app: dotnet-api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "5116"
     spec:
       initContainers:  # Wait for MySQL before starting
       - name: wait-for-mysql
