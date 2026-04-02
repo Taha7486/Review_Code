@@ -26,7 +26,7 @@ kind: Deployment
 metadata:
   name: dotnet-api
 spec:
-  replicas: 2
+  replicas: 3
   selector:
     matchLabels:
       app: dotnet-api
