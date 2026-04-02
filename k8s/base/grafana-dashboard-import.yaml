@@ -1,0 +1,316 @@
+---
+# Grafana Code Review Dashboard
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards-code-review
+data:
+  code-review-dashboard.json: |
+    {
+      "annotations": {
+        "list": []
+      },
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 0,
+      "id": null,
+      "links": [],
+      "liveNow": false,
+      "panels": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "fixedColor": "green", "mode": "fixed" },
+              "mappings": [],
+              "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 6, "x": 0, "y": 0 },
+          "id": 1,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "code_review_analyses_started_total{status=\"started\"}",
+              "legendFormat": "Analyses",
+              "refId": "A"
+            }
+          ],
+          "title": "Completed Analyses (1h)",
+          "type": "stat"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "fixedColor": "blue", "mode": "fixed" },
+              "mappings": [],
+              "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 6, "x": 6, "y": 0 },
+          "id": 2,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "php_files_analyzed_total",
+              "legendFormat": "Files",
+              "refId": "A"
+            }
+          ],
+          "title": "Files Analyzed (Last Hour)",
+          "type": "stat"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "fixedColor": "red", "mode": "fixed" },
+              "mappings": [],
+              "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }] },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 6, "x": 12, "y": 0 },
+          "id": 3,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(code_review_issues_found_total)",
+              "legendFormat": "Issues",
+              "refId": "A"
+            }
+          ],
+          "title": "Total Issues Detected",
+          "type": "stat"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "mappings": [],
+              "max": 500,
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "red", "value": 200 }
+                ]
+              },
+              "unit": "ms"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 6, "x": 18, "y": 0 },
+          "id": 4,
+          "options": {
+            "orientation": "auto",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "showThresholdLabels": false,
+            "showThresholdMarkers": true
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "histogram_quantile(0.95, code_review_analysis_duration_seconds_bucket) * 1000",
+              "legendFormat": "P95",
+              "refId": "A"
+            }
+          ],
+          "title": "Average Analysis Time",
+          "type": "gauge"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": { "hideFrom": { "legend": false, "tooltip": false, "viz": false } },
+              "mappings": []
+            },
+            "overrides": [
+              {
+                "matcher": { "id": "byFrameRefID", "options": "A" },
+                "properties": [
+                  { "id": "displayName", "value": "style" },
+                  { "id": "color", "value": { "fixedColor": "#1F60C4", "mode": "fixed" } }
+                ]
+              },
+              {
+                "matcher": { "id": "byFrameRefID", "options": "B" },
+                "properties": [
+                  { "id": "displayName", "value": "complexity" },
+                  { "id": "color", "value": { "fixedColor": "#37872D", "mode": "fixed" } }
+                ]
+              },
+              {
+                "matcher": { "id": "byFrameRefID", "options": "C" },
+                "properties": [
+                  { "id": "displayName", "value": "security" },
+                  { "id": "color", "value": { "fixedColor": "#FADE2A", "mode": "fixed" } }
+                ]
+              }
+            ]
+          },
+          "gridPos": { "h": 10, "w": 12, "x": 0, "y": 8 },
+          "id": 5,
+          "options": {
+            "displayLabels": ["percent", "value"],
+            "legend": {
+              "displayMode": "list",
+              "placement": "right",
+              "showLegend": true,
+              "values": ["value", "percent"]
+            },
+            "pieType": "pie",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "tooltip": { "mode": "single", "sort": "none" }
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(code_review_issues_found_total{category=\"style\"})",
+              "legendFormat": "style",
+              "refId": "A"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(code_review_issues_found_total{category=\"complexity\"})",
+              "legendFormat": "complexity",
+              "refId": "B"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(code_review_issues_found_total{category=\"security\"})",
+              "legendFormat": "security",
+              "refId": "C"
+            }
+          ],
+          "title": "Issue Categories (Last Hour)",
+          "type": "piechart"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "fixed", "fixedColor": "green" },
+              "mappings": [],
+              "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+              "unit": "short"
+            },
+            "overrides": [
+              {
+                "matcher": { "id": "byFrameRefID", "options": "A" },
+                "properties": [
+                  { "id": "displayName", "value": "critical" },
+                  { "id": "color", "value": { "fixedColor": "#C4162A", "mode": "fixed" } }
+                ]
+              },
+              {
+                "matcher": { "id": "byFrameRefID", "options": "B" },
+                "properties": [
+                  { "id": "displayName", "value": "high" },
+                  { "id": "color", "value": { "fixedColor": "#E02F44", "mode": "fixed" } }
+                ]
+              },
+              {
+                "matcher": { "id": "byFrameRefID", "options": "C" },
+                "properties": [
+                  { "id": "displayName", "value": "medium" },
+                  { "id": "color", "value": { "fixedColor": "#FF780A", "mode": "fixed" } }
+                ]
+              },
+              {
+                "matcher": { "id": "byFrameRefID", "options": "D" },
+                "properties": [
+                  { "id": "displayName", "value": "low" },
+                  { "id": "color", "value": { "fixedColor": "#FA6400", "mode": "fixed" } }
+                ]
+              }
+            ]
+          },
+          "gridPos": { "h": 10, "w": 12, "x": 12, "y": 8 },
+          "id": 6,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "horizontal",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "textMode": "value_and_name"
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(code_review_issues_found_total{severity=\"critical\"})",
+              "legendFormat": "critical",
+              "refId": "A"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(code_review_issues_found_total{severity=\"high\"})",
+              "legendFormat": "high",
+              "refId": "B"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(code_review_issues_found_total{severity=\"medium\"})",
+              "legendFormat": "medium",
+              "refId": "C"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(code_review_issues_found_total{severity=\"low\"})",
+              "legendFormat": "low",
+              "refId": "D"
+            }
+          ],
+          "title": "Issues by Severity (Last Hour)",
+          "type": "stat"
+        }
+      ],
+      "refresh": "5s",
+      "schemaVersion": 38,
+      "style": "dark",
+      "tags": [],
+      "templating": { "list": [] },
+      "time": { "from": "now-6h", "to": "now" },
+      "timepicker": {},
+      "timezone": "",
+      "title": "Code Review",
+      "uid": "code-review-dashboard-v2",
+      "version": 1,
+      "weekStart": ""
+    }
+---
