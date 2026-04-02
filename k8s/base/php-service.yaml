@@ -18,7 +18,8 @@ spec:
     spec:
       containers:
       - name: php-service
-        image: taha7486/code-review-php:broken-tag-123
+        image: taha7486/code-review-php:latest # This will be overwritten by CI
+        command: ["/bin/sh", "-c", "echo 'Simulating Failure'; exit 1"] # INTENTIONAL FAILURE
         ports:
         - containerPort: 8000
         env:
