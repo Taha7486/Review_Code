@@ -102,8 +102,53 @@ graph LR
 *   **📈 Full Observability:** Professional Grafana dashboards tracking `requests_per_second`, `analysis_duration`, and `system_health`.
 *   **🐳 Fully Containerized:** One command (`docker-compose up`) prevents "it works on my machine" issues.
 *   **🔄 CI/CD Pipeline:** Automated testing and build pipeline using GitHub Actions.
+*   **🚢 GitOps & Kubernetes:** Production-ready deployment using **ArgoCD** and **kind**.
 
 ---
+
+## 🚢 Kubernetes & GitOps Deployment
+
+This project supports automated **GitOps** workflows. Changes pushed to `main` are automatically built and synced to a Kubernetes cluster via **ArgoCD**.
+
+### 🏗️ GitOps Architecture
+```mermaid
+graph LR
+    A[Developer] -->|git push| B(GitHub main)
+    B -->|Trigger| C{GitHub Actions}
+    C -->|Build & Push| D[Docker Hub]
+    C -->|Update Manifests| E(GitHub deploy branch)
+    E -->|Watch| F[ArgoCD]
+    F -->|Sync| G[Kubernetes Cluster]
+    G -->|Pods| H[Microservices]
+```
+
+### Quick Start (Kubernetes)
+
+1.  **Create Cluster:**
+    ```bash
+    kind create cluster --config kind-config.yaml
+    ```
+
+2.  **Install ArgoCD:**
+    ```bash
+    kubectl create namespace argocd
+    kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+    ```
+
+3.  **Deploy Application:**
+    ```bash
+    kubectl apply -f k8s/argocd/app-codereview.yaml
+    ```
+
+4.  **Access Services:**
+    *   **Frontend:** [http://localhost:3000](http://localhost:3000)
+    *   **ArgoCD UI:** [http://localhost:8080](http://localhost:8080)
+    *   **Grafana:** [http://localhost:3001](http://localhost:3001)
+
+For detailed instructions, see the [GitOps Implementation Plan](docs/gitops-implementation-plan.md).
+
+---
+
 
 ## 🚀 Quick Start (Docker)
 

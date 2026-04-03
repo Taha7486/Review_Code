@@ -117,13 +117,12 @@ docker pull <your-dockerhub-username>/code-review-frontend:latest
 
 ***
 
-## Phase 1: Environment Setup (30-60 minutes)
+## Phase 1: Environment Setup (✅ COMPLETED)
 
 ### 🎯 Goal
-
 Set up a local kind cluster and verify connectivity.
 
-### ⏱️ Estimated Time: 30-60 minutes
+### ⏱️ Actual Time: 30 minutes
 
 ***
 
@@ -296,13 +295,12 @@ kubectl config set-context --current --namespace=default
 
 ***
 
-## Phase 2: Convert Services to Kubernetes (4-6 hours)
+## Phase 2: Convert Services to Kubernetes (✅ COMPLETED)
 
 ### 🎯 Goal
-
 Transform Docker Compose services into Kubernetes manifests (Deployments, Services, ConfigMaps, Secrets).
 
-### ⏱️ Estimated Time: 4-6 hours
+### ⏱️ Actual Time: 4 hours
 
 ### 📖 Key Concepts
 
@@ -665,13 +663,12 @@ kubectl port-forward svc/react-app 3000:80
 
 ***
 
-## Phase 3: Install and Configure ArgoCD (1-2 hours)
+## Phase 3: Install and Configure ArgoCD (✅ COMPLETED)
 
 ### 🎯 Goal
-
 Install ArgoCD in your kind cluster and configure it to watch your GitHub repository.
 
-### ⏱️ Estimated Time: 1-2 hours
+### ⏱️ Actual Time: 1 hour
 
 ### 📖 What is ArgoCD?
 
@@ -888,13 +885,14 @@ Sync Status:        Synced
 
 ***
 
-## Phase 4: Deploy Application (2-4 hours)
+## Phase 4: Deploy Application (✅ COMPLETED)
 
 ### 🎯 Goal
-
 Deploy the remaining services (.NET API, Prometheus, Grafana) and configure them properly.
 
-### ⏱️ Estimated Time: 2-4 hours
+### ⏱️ Actual Time: 3 hours
+
+> 💡 **Lesson Learned (RBAC)**: During this phase, we discovered that Prometheus requires explicit Cluster-level permissions to discover pods. We had to implement a `ClusterRole` and `ServiceAccount` to fix `Forbidden` errors in the scrape logs.
 
 ***
 
@@ -1197,13 +1195,14 @@ curl http://localhost:3001/api/health
 
 ***
 
-## Phase 5: Test GitOps Workflow (1-2 hours)
+## Phase 5: Test GitOps Workflow (✅ COMPLETED)
 
 ### 🎯 Goal
-
 Verify that changes pushed to Git automatically deploy to Kubernetes.
 
-### ⏱️ Estimated Time: 1-2 hours
+### ⏱️ Actual Time: 2 hours
+
+> 💡 **Validation**: Successfully performed Zero-Downtime scaling, Self-Healing (deleting pods), and a full **Git Rollback** using `git revert` after a simulated configuration error.
 
 ***
 
@@ -1311,13 +1310,12 @@ kubectl get pods -l app=php-service -w
 
 ***
 
-## Phase 6: Documentation and Validation (2-3 hours)
+## Phase 6: Documentation and Validation (✅ COMPLETED)
 
 ### 🎯 Goal
-
 Document your setup, capture screenshots for your portfolio, and create a presentation-ready demo.
 
-### ⏱️ Estimated Time: 2-3 hours
+### ⏱️ Actual Time: 2 hours
 
 ***
 
