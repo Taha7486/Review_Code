@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
       - name: react-app
-        image: taha7486/code-review-frontend:latest
+        image: taha7486/code-review-frontend:f028f1fb589d3ea1f1f81896bc00597c47f1b729
         ports:
         - containerPort: 80  # Nginx serves on port 80 inside container
         envFrom:

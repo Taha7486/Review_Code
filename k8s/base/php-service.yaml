@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: php-service
-        image: taha7486/code-review-php:latest
+        image: taha7486/code-review-php:f028f1fb589d3ea1f1f81896bc00597c47f1b729
         ports:
         - containerPort: 8000
         env:
