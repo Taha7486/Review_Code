@@ -127,17 +127,22 @@ graph LR
 1.  **Create Cluster:**
     ```bash
     kind create cluster --config kind-config.yaml
+    kubectl config set-context --current --namespace=default
     ```
 
 2.  **Install ArgoCD:**
     ```bash
     kubectl create namespace argocd
     kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
     ```
 
 3.  **Deploy Application:**
     ```bash
     kubectl apply -f k8s/argocd/app-codereview.yaml
+    kubectl apply -f k8s/argocd/argocd-ui.yaml
+    # Get ArgoCD password
+    kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | ForEach-Object { [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($_)) }
     ```
 
 4.  **Access Services:**
