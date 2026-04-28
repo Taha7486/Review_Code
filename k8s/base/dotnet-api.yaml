@@ -45,7 +45,7 @@ spec:
         command: ['sh', '-c', 'until nc -z mysql 3306; do echo waiting for mysql; sleep 2; done;']
       containers:
       - name: dotnet
-        image: taha7486/code-review-api:latest
+        image: taha7486/code-review-api:63afbbfbe468a7e6b558b50d3572408cdbc50228
         ports:
         - containerPort: 5116
         env:
