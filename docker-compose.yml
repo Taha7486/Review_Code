@@ -30,6 +30,8 @@ services:
         condition: service_healthy
     environment:
       - PHP_MEMORY_LIMIT=512M
+      - APP_ENV=production
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET}
     ports:
       - "8000:8000"
     healthcheck:

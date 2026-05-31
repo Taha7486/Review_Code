@@ -1,15 +1,5 @@
 ---
 apiVersion: v1
-kind: Secret
-metadata:
-  name: dotnet-secrets
-type: Opaque
-stringData:
-  JWT_SECRET_KEY: "my_super_long_local_dev_jwt_secret_key_for_hmac_sha512_only_not_for_production_1234567890"
-  INTERNAL_SERVICE_SECRET: "svc_bridge_3Fz8Lm2Qk1R" 
-  GITHUB_PAT: "your_github_personal_access_token"  # Optional for private repos
----
-apiVersion: v1
 kind: ConfigMap
 metadata:
   name: dotnet-config
@@ -25,6 +15,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: dotnet-api
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   replicas: 2
   selector:
@@ -34,11 +26,14 @@ spec:
     metadata:
       labels:
         app: dotnet-api
+        component: api
+        part-of: codereview
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/path: "/metrics"
         prometheus.io/port: "5116"
     spec:
+      serviceAccountName: sa-dotnet-api
       initContainers:  # Wait for MySQL before starting
       - name: wait-for-mysql
         image: busybox:1.28
@@ -93,7 +88,6 @@ spec:
     targetPort: 5116
     nodePort: 30116  # Expose for external access
   type: NodePort
----
 ---
 apiVersion: v1
 kind: Service

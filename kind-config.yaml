@@ -23,3 +23,7 @@ nodes:
   - containerPort: 30080
     hostPort: 8080
     protocol: TCP
+  # Vault UI
+  - containerPort: 30200
+    hostPort: 30200
+    protocol: TCP

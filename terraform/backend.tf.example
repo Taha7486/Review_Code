@@ -1,0 +1,10 @@
+# Example only. Do not use local state for shared production infrastructure.
+#
+# Configure a remote backend with locking in terraform/environments/prod
+# once the production platform is selected.
+#
+# terraform {
+#   backend "remote" {
+#     # backend-specific configuration goes here
+#   }
+# }

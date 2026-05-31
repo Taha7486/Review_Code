@@ -9,6 +9,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: react-app
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   replicas: 3
   selector:
@@ -18,7 +20,10 @@ spec:
     metadata:
       labels:
         app: react-app
+        component: frontend
+        part-of: codereview
     spec:
+      serviceAccountName: sa-react-app
       containers:
       - name: react-app
         image: taha7486/code-review-frontend:latest

@@ -40,3 +40,11 @@ docker-compose.override.yml
 
 # MySQL
 .my.cnf
+
+# Terraform local files
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfplan

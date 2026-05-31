@@ -10,6 +10,14 @@ A production-ready **Microservices DevOps Platform** that automates code quality
 
 ---
 
+## 🛡️ Infrastructure Hardening Status
+
+- **Secrets:** Managed via **HashiCorp Vault** & Vault Secrets Operator (VSO).
+- **Security:** Container images scanned for vulnerabilities using **Trivy** in CI/CD.
+- **Infrastructure:** Managed via **Terraform** (Platform) and **ArgoCD** (Application).
+
+---
+
 ## 📸 Dashboard & Metrics
 
 <img width="1366" height="720" alt="image" src="https://github.com/user-attachments/assets/4a09b8fc-b0fd-4ba3-bf79-29c5f17a1440" />

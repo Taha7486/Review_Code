@@ -10,21 +10,14 @@ spec:
     requests:
       storage: 5Gi  # 5GB for database
 ---
-# Secret for database credentials
-apiVersion: v1
-kind: Secret
-metadata:
-  name: mysql-secret
-type: Opaque
-stringData:
-  MYSQL_ROOT_PASSWORD: "Epitomof1996"  
-  MYSQL_DATABASE: "code_review_tool"
 ---
 # MySQL StatefulSet (ensures stable network identity)
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: mysql
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   serviceName: mysql
   replicas: 1  # MySQL doesn't support multiple replicas without clustering
@@ -35,7 +28,10 @@ spec:
     metadata:
       labels:
         app: mysql
+        component: database
+        part-of: codereview
     spec:
+      serviceAccountName: sa-mysql
       containers:
       - name: mysql
         image: mysql:8.0
