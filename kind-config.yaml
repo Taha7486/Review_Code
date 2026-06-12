@@ -1,5 +1,12 @@
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
+# kindnet does not enforce NetworkPolicy. Disable it and install Calico instead.
+# After `kind create cluster`, run:
+#   kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.29.0/manifests/calico.yaml
+# Then wait: kubectl -n kube-system wait pod -l k8s-app=calico-node --for=condition=Ready --timeout=120s
+networking:
+  disableDefaultCNI: true
+  podSubnet: "192.168.0.0/16"
 nodes:
 - role: control-plane
   extraPortMappings: # this exposes services to the host machine 
