@@ -94,15 +94,20 @@ Defined in `infrastructure/mysql/DB_Schema.sql` and applied as a K8s ConfigMap. 
   - `sa-php-service` has no Vault identity; it reads `INTERNAL_SERVICE_SECRET` from the `dotnet-secrets` K8s Secret (shared with dotnet-api via `secretKeyRef`)
 - For local Docker Compose, secrets come from `.env`.
 
-### Deployment Model (GitOps)
-- ArgoCD watches the `deploy` branch of this repo.
+### Deployment Model (GitOps) — Area 4 COMPLETE 2026-06-12
+- ArgoCD watches the `deploy` branch of this repo. Single application `codereview-app` syncs `k8s/base/` with prune + selfHeal.
 - CI pipeline (`.github/workflows/ci.yml`) builds images, scans with Trivy (blocks on CRITICAL), then updates image tags in the `deploy` branch.
-- Terraform manages the platform layer (namespaces, RBAC, Vault); ArgoCD manages the application layer (`k8s/base/`).
+- **Terraform owns platform/security resources** (namespaces, ServiceAccounts, RBAC, Vault server + policies + auth bindings, VSO, NetworkPolicies). **ArgoCD owns app runtime** (Deployments, Services, ConfigMaps, VaultStaticSecrets). Never add Terraform-owned resource types to `k8s/base/`.
+- See `terraform/README.md` for the full ownership table, boundary rule, and CI limitations.
+
+### Terraform CI
+- `terraform fmt -check` + `terraform init` + `terraform validate` run in CI on `terraform/**` changes (`.github/workflows/terraform-ci.yml`).
+- `terraform plan` and `apply` are **manual local operations only** — the kind environment's kubernetes/helm/vault providers require live endpoints not available to GitHub Actions runners. Run `terraform plan` locally and review before every `terraform apply`.
 
 ### K8s Manifest Layout
 - `k8s/base/` — application manifests (ArgoCD-managed)
-- `k8s/platform/` — platform manifests (Terraform-managed)
 - `k8s/argocd/` — ArgoCD Application CRs
+- `terraform/environments/kind/` — kind cluster environment (single entry point for `terraform apply`)
 - `terraform/modules/` — reusable modules: `namespace`, `service-accounts`, `rbac`, `vault`, `vault-policies`, `vault-auth`, `vault-secrets-operator`, `network-policies`
 
 ### NetworkPolicies (Area 3 — IMPLEMENTED 2026-06-12)

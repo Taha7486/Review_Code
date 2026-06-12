@@ -853,21 +853,18 @@ terraform/
 
 ---
 
-#### Step 4.8 — ArgoCD boundary enforcement
+#### Step 4.8 — ArgoCD boundary enforcement ✅ DONE 2026-06-12
 
-**What:**
+**What:** Single ArgoCD Application (`codereview-app`) owns `k8s/base/` only. Terraform owns all platform/security resources. Boundary documented in `terraform/README.md`.
 
-1. Keep a single ArgoCD Application, `codereview-app`, for `k8s/base`.
-2. Do not create a second ArgoCD platform app.
-3. Keep Terraform-owned resources out of ArgoCD-managed paths.
-4. Remove deprecated platform resources from `k8s/base`, starting with Prometheus RBAC.
-5. Document the ownership boundary in `terraform/README.md`.
+**Implemented:**
+1. Single `codereview-app` ArgoCD Application syncing `k8s/base/` from the `deploy` branch (prune + selfHeal). No second platform app.
+2. Terraform-owned resources (Namespaces, ServiceAccounts, RBAC, NetworkPolicies, Vault policies/auth, VaultAuth CRs) are absent from `k8s/base/`.
+3. `terraform/README.md` updated with: full ownership table (Terraform vs ArgoCD), boundary rule and rationale, CI workflow scope and why plan/apply are not in CI, staged bootstrap procedure, VSO secret table, module reference, production placeholder notes.
 
-**Why:** Prevents drift and sync wars while keeping the repo simple: ArgoCD deploys app runtime; Terraform manages platform/security resources.
+**Why:** Prevents drift and sync wars. ArgoCD's prune will delete any resource in `k8s/base/` not present in the deploy branch — Terraform-owned resources must never appear there. See operational log (bootstrap/ArgoCD-Terraform conflict incident) for the real-world example that motivated this.
 
-**Where:** `k8s/argocd/`, `k8s/base/`, `terraform/README.md`.
-
-**Risk:** Misconfiguration causes ArgoCD and Terraform to fight over the same object. The mitigation is a strict path and ownership split.
+**Where:** `terraform/README.md` (primary doc), `k8s/argocd/app-codereview.yaml` (single app definition).
 
 **Dependency:** Steps 4.4–4.7, 0.3.
 
