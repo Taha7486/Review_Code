@@ -118,3 +118,5 @@ Documented in `.env.example`. Mandatory for local dev: `GITHUB_PAT`, `JWT_SECRET
 
 ## CI/CD Pipeline
 `.github/workflows/ci.yml` runs: test → Trivy scan → build & push Docker images → update deploy branch. All three test suites (dotnet, php, react) run in parallel before any build step.
+
+`.github/workflows/terraform-ci.yml` runs on `terraform/**` path changes: `fmt -check` (all modules) → `init` → `validate` (kind environment). `terraform plan` is deferred — requires a live kind cluster and Vault instance not available in GitHub Actions runners.

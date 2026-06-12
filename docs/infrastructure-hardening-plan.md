@@ -873,17 +873,22 @@ terraform/
 
 ---
 
-#### Step 4.9 — CI for Terraform
+#### Step 4.9 — CI for Terraform ✅ PARTIAL 2026-06-12
 
-**What:** Add `.github/workflows/terraform.yml`:
+**What:** `.github/workflows/terraform-ci.yml` added. Triggers on push/PR to `main` for `terraform/**` path changes.
 
-- `terraform fmt -check`
-- `terraform validate`
-- `tflint` (optional)
-- `terraform plan` on PR (kind environment, read-only)
-- `terraform apply` on manual workflow_dispatch or protected branch (not auto-apply to prod initially)
+**Implemented:**
+- `terraform fmt -check -recursive` (runs from `terraform/` root, covers all modules)
+- `terraform init` (kind environment; uses committed `.terraform.lock.hcl` for provider pinning)
+- `terraform validate` (schema and reference validation; no live connectivity needed)
 
-**Why:** IaC changes need review separate from app CI.
+**Deferred — `terraform plan`:** The kind environment requires three live provider endpoints: a reachable Kubernetes cluster (kubernetes + helm providers need a valid kubeconfig), and a running Vault instance (vault provider). None are available in GitHub Actions runners without provisioning the full platform stack in CI. Plan should be added when/if a kind-in-CI step is introduced (or a staging cluster is available).
+
+**Deferred — `tflint`:** Optional; not blocked on anything, just not prioritised.
+
+**Deferred — `terraform apply` on dispatch:** No apply automation added; applies remain a manual local operation until a staging environment is available.
+
+**Why:** IaC changes need review separate from app CI; at minimum, fmt drift and schema regressions are now caught on every PR.
 
 **Dependency:** Step 4.1.
 

@@ -1,0 +1,51 @@
+name: Terraform CI
+
+# Runs on any PR or push to main that touches terraform sources.
+# Scope: fmt-check, init, validate.
+#
+# terraform plan is intentionally excluded: the kind environment requires a live
+# Kubernetes cluster (kubernetes + helm providers need a reachable kubeconfig) and
+# a running Vault instance (vault provider). Neither is available in GitHub Actions
+# runners without spinning up the full platform stack. Plan should be added in a
+# future step that provisions a kind cluster in CI, or runs against a dedicated
+# staging environment. See docs/infrastructure-hardening-plan.md step 4.9.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'terraform/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'terraform/**'
+
+permissions:
+  contents: read
+
+jobs:
+  terraform:
+    name: fmt / init / validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.9"
+
+      # Check from terraform/ root so all modules are covered, not just the environment entry-point.
+      - name: Terraform fmt
+        run: terraform fmt -check -recursive
+        working-directory: terraform
+
+      - name: Terraform init
+        run: terraform init
+        working-directory: terraform/environments/kind
+
+      - name: Terraform validate
+        run: terraform validate
+        working-directory: terraform/environments/kind
