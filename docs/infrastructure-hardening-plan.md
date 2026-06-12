@@ -1067,7 +1067,28 @@ allow-prometheus-ingress, allow-grafana-egress
 - php-service /metrics returns 401 (pre-existing app auth issue, not NetworkPolicy; traffic IS reaching php-service)
 - Kubelet liveness/readiness probes exempt from NetworkPolicy enforcement in Calico on kind
 
-**Outstanding TODO:** Create dedicated grafana VaultAuth binding with its own Vault role; current setup uses `dotnet-api-vault-auth` for grafana VSS which violates least-privilege.
+**Area 3 outstanding TODO resolved:** Dedicated `grafana-vault-auth` VaultAuth binding created in Step 4.11 (2026-06-12). Grafana placeholder password replaced with a random secret (see entry below).
+
+---
+
+### 2026-06-12 — Grafana hardcoded admin password replaced with Vault-sourced random secret
+
+**What was wrong:** `secret/codereview/grafana/config` in Vault held the placeholder string `replace_with_secure_grafana_admin_password`. The K8s Secret `grafana-secrets` (synced by VSO) therefore held the same placeholder, and Grafana initialised its `grafana.db` with that predictable value.
+
+**Fix applied:**
+
+1. Generated a 24-byte cryptographically random value using `RNGCryptoServiceProvider` (PS 5.1 / .NET Framework 4.x compatible; `RandomNumberGenerator::Fill` is .NET 5+ only and fails silently, leaving zero bytes — do not use that method).
+2. Updated `secret/codereview/grafana/config` in Vault via HTTP API (never printed the value; confirmed by length + distinct-character count only).
+3. Verified `k8s/base/vault-static-secrets.yaml` already had `vaultAuthRef: grafana-vault-auth` (Step 4.11 change). Applied it to the cluster (`kubectl apply`) since the deploy branch had not yet been updated by CI.
+4. Annotated the VSS with `secrets.hashicorp.com/vso-force-sync` to trigger immediate re-read; confirmed K8s Secret updated (30 chars, 22 distinct).
+5. Deleted the Grafana pod. Grafana has no PVC — `grafana.db` lives in the container writable layer, so pod deletion guarantees a fresh DB init using the new `GF_SECURITY_ADMIN_PASSWORD` env var.
+6. Verified login: `curl -u "admin:${GF_SECURITY_ADMIN_PASSWORD}" http://localhost:3000/api/org` returned HTTP 200 from inside the container.
+
+**Where the password lives:** Vault KV v2 at `secret/codereview/grafana/config`, key `admin-password`. VSO syncs it to the `grafana-secrets` K8s Secret in the `codereview` namespace. Grafana reads it via `secretKeyRef`. No plaintext value in any manifest or environment file.
+
+**Manual reset required:** Yes. Because Grafana has no PVC, the old `grafana.db` (seeded with the placeholder) lived in the container writable layer. Pod deletion was necessary to trigger a fresh `grafana.db` init with the new password. Future password rotations require the same pod-delete cycle.
+
+**Note on Vault dev-mode restarts:** Vault dev mode loses all KV data on pod restart. After each cluster restart, `seed-vault.sh` must be updated (or run) with the current real random values — the script's placeholder strings must not be committed to the repo. The random password is in Vault only; store it in a local password manager for the dev environment.
 
 ---
 
