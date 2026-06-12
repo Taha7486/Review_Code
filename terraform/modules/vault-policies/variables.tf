@@ -9,3 +9,9 @@ variable "php_policy_name" {
   type        = string
   default     = "codereview-php-service"
 }
+
+variable "grafana_policy_name" {
+  description = "Vault policy name for Grafana."
+  type        = string
+  default     = "codereview-grafana"
+}

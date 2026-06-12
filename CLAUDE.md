@@ -88,6 +88,10 @@ Defined in `infrastructure/mysql/DB_Schema.sql` and applied as a K8s ConfigMap. 
 ### Secrets Management (K8s)
 - HashiCorp Vault runs in the `vault` namespace, provisioned by Terraform.
 - Vault Secrets Operator (VSO) syncs secrets into K8s via `VaultStaticSecret` CRDs in `k8s/base/vault-static-secrets.yaml`.
+- Vault auth bindings (least-privilege, Step 4.11 complete):
+  - `sa-dotnet-api` → `dotnet-api-vault-auth` → `codereview-dotnet-api` policy → `secret/data/codereview/dotnet-api/*`
+  - `sa-grafana` → `grafana-vault-auth` → `codereview-grafana` policy → `secret/data/codereview/grafana/*`
+  - `sa-php-service` has no Vault identity; it reads `INTERNAL_SERVICE_SECRET` from the `dotnet-secrets` K8s Secret (shared with dotnet-api via `secretKeyRef`)
 - For local Docker Compose, secrets come from `.env`.
 
 ### Deployment Model (GitOps)

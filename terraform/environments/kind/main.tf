@@ -102,6 +102,12 @@ module "vault_auth" {
       policies                         = [module.vault_policies.dotnet_policy_name]
       token_ttl                        = 3600
     }
+    "grafana-role" = {
+      bound_service_account_names      = ["sa-grafana"]
+      bound_service_account_namespaces = [module.namespaces["codereview"].name]
+      policies                         = [module.vault_policies.grafana_policy_name]
+      token_ttl                        = 3600
+    }
   }
   depends_on = [module.vault]
 }
@@ -117,6 +123,10 @@ module "vault_secrets_operator" {
     "dotnet-api-vault-auth" = {
       role            = "dotnet-api-role"
       service_account = "sa-dotnet-api"
+    }
+    "grafana-vault-auth" = {
+      role            = "grafana-role"
+      service_account = "sa-grafana"
     }
   }
 

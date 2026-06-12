@@ -904,21 +904,21 @@ terraform/
 
 ---
 
-#### Step 4.11 — Dedicated grafana VaultAuth binding (TODO from Area 3)
+#### Step 4.11 — Dedicated grafana VaultAuth binding (TODO from Area 3) ✅ DONE 2026-06-12
 
-**What:** Currently `k8s/base/vault-static-secrets.yaml` uses `dotnet-api-vault-auth` for the grafana `VaultStaticSecret`. This means `sa-dotnet-api`'s Vault role can read grafana admin credentials — violates least privilege. Fix requires:
+**What:** Separated grafana's Vault identity from `sa-dotnet-api`. Previously `k8s/base/vault-static-secrets.yaml` used `dotnet-api-vault-auth` for the grafana `VaultStaticSecret`, meaning `sa-dotnet-api`'s role could read grafana admin credentials.
 
-1. Create a new Vault role `grafana-role` bound to `sa-grafana` in `terraform/environments/kind/main.tf` (`module.vault_auth.roles`).
-2. Create a new Vault policy `codereview-grafana` in `terraform/modules/vault-policies/main.tf` covering only `secret/data/codereview/grafana/*`.
-3. Add a `VaultAuth` CR `grafana-vault-auth` in `terraform/modules/vault-secrets-operator/` (or `k8s/base/vault-static-secrets.yaml`) referencing `grafana-role`.
-4. Update the grafana `VaultStaticSecret` in `k8s/base/vault-static-secrets.yaml` to use `vaultAuthRef: grafana-vault-auth`.
-5. Seed the grafana Vault secret path with `sa-grafana` SA (currently seeded but readable by dotnet-api's role).
+**Changes applied:**
+1. Added `vault_policy.grafana` (`codereview-grafana`) in `terraform/modules/vault-policies/main.tf` — scoped to `secret/data/codereview/grafana/*` only.
+2. Added `grafana-role` to `module.vault_auth.roles` in `terraform/environments/kind/main.tf` — bound to `sa-grafana`, `codereview` namespace.
+3. Added `grafana-vault-auth` to `module.vault_secrets_operator.vault_auths` — VaultAuth CR created in `codereview` namespace.
+4. Updated `k8s/base/vault-static-secrets.yaml` `grafana-secrets` VSS to use `vaultAuthRef: grafana-vault-auth`.
+5. Removed grafana paths from `codereview-dotnet-api` policy — `sa-dotnet-api` can no longer read `secret/data/codereview/grafana/*`.
+6. Added `grafana_policy_name` variable and output to `vault-policies` module.
 
-**Why:** `sa-dotnet-api` should never have read access to `secret/data/codereview/grafana/config`. The shared-auth workaround was applied in Area 1 as a quick fix (see operational log Issue 2). This step properly separates the identities.
+**Verification:** `grafana-vault-auth` VaultAuth `Valid: true`; `grafana-secrets` K8s Secret populated with `admin-password`; `terraform plan` shows no changes; grafana pod 1/1 Running.
 
-**Where:** `terraform/modules/vault-policies/main.tf`, `terraform/environments/kind/main.tf`, `terraform/modules/vault-secrets-operator/`, `k8s/base/vault-static-secrets.yaml`.
-
-**Risk:** grafana pod will fail with `CreateContainerConfigError` during the transition if the new `grafana-vault-auth` is not synced before the old `dotnet-api-vault-auth` reference is removed. Sequence: (1) add new role/policy/auth, apply Terraform, verify grafana-secrets refreshes; (2) then update `vault-static-secrets.yaml` to use new auth ref; (3) push to deploy branch.
+**Sequencing used:** Added new role/policy/VaultAuth → applied → verified `grafana-secrets` refreshed via new binding → switched VSS auth ref → removed old grafana paths from dotnet policy. Zero downtime.
 
 **Dependency:** Area 1 (Vault infrastructure already in place).
 

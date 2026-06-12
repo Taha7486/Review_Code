@@ -1,8 +1,6 @@
 resource "vault_policy" "dotnet_api" {
   name = var.dotnet_policy_name
 
-  # Also covers grafana/config because vault-static-secrets.yaml uses dotnet-api-vault-auth
-  # for all three VaultStaticSecrets. TODO: give grafana its own VaultAuth binding.
   policy = <<-EOT
     path "secret/data/codereview/dotnet-api/*" {
       capabilities = ["read"]
@@ -11,13 +9,19 @@ resource "vault_policy" "dotnet_api" {
     path "secret/metadata/codereview/dotnet-api/*" {
       capabilities = ["list", "read"]
     }
+  EOT
+}
 
-    path "secret/data/codereview/grafana/config" {
+resource "vault_policy" "grafana" {
+  name = var.grafana_policy_name
+
+  policy = <<-EOT
+    path "secret/data/codereview/grafana/*" {
       capabilities = ["read"]
     }
 
-    path "secret/metadata/codereview/grafana/config" {
-      capabilities = ["read"]
+    path "secret/metadata/codereview/grafana/*" {
+      capabilities = ["list", "read"]
     }
   EOT
 }
