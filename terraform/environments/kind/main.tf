@@ -122,3 +122,10 @@ module "vault_secrets_operator" {
 
   depends_on = [module.vault_auth]
 }
+
+module "network_policies" {
+  source    = "../../modules/network-policies"
+  namespace = module.namespaces["codereview"].name
+
+  depends_on = [module.namespaces]
+}

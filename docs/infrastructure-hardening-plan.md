@@ -1,7 +1,7 @@
 # Infrastructure Hardening — Implementation Plan
 
 > **Project:** CodeReview (`Review_Code`)  
-> **Status:** Area 0, Area 1, and Area 2 IMPLEMENTED. Area 4 (Foundation) IMPLEMENTED.  
+> **Status:** Area 0, Area 1, Area 2, Area 3, and Area 4 (Foundation) IMPLEMENTED.  
 > **Audience:** Platform / DevOps engineers extending the existing kind + ArgoCD + GitHub Actions stack toward production-grade security
 
 This plan is grounded in the **actual repository layout** as of analysis. It covers four additions: HashiCorp Vault, Trivy, Kubernetes Network Policies, and Terraform — with explicit ordering for cross-dependencies.
@@ -291,7 +291,7 @@ Phase 6: Terraform hardening, ArgoCD path split, production cutover
 
 ---
 
-#### Step 0.4 — Add consistent labels for policy selectors
+#### Step 0.4 — Add consistent labels for policy selectors (COMPLETED)
 
 **What:** Ensure every pod template has labels: `app`, `component` (e.g. `frontend`, `api`, `analyzer`, `database`, `monitoring`), and `part-of: codereview`.
 
@@ -302,6 +302,8 @@ Phase 6: Terraform hardening, ArgoCD path split, production cutover
 **Risk:** Label changes trigger rolling restarts — acceptable.
 
 **Dependency:** Before Area 3; can be done in parallel with Area 1.
+
+**Verified (2026-06-12):** All ten pods in `codereview` namespace confirmed running with `app`, `component`, and `part-of: codereview` labels after deploying main@897aa49b to deploy branch. See decision log for deploy-lag and prometheus SA issues encountered during this verification.
 
 ---
 
@@ -583,7 +585,7 @@ with:
 
 ### Area 3 — Kubernetes Network Policies
 
-#### Step 3.1 — Confirm CNI supports NetworkPolicy
+#### Step 3.1 — Confirm CNI supports NetworkPolicy (COMPLETED)
 
 **What:** Verify the target cluster CNI enforces policies (kind default supports it; confirm the equivalent network policy support for the chosen production platform).
 
@@ -593,9 +595,11 @@ with:
 
 **Dependency:** Step 0.3 (dedicated namespace).
 
+**Verified (2026-06-12):** Calico v3.29.0 running in kind cluster; kindnet disabled. `calico-node` and `calico-kube-controllers` pods both Running 1/1 in `kube-system`. NetworkPolicy enforcement confirmed active.
+
 ---
 
-#### Step 3.2 — Document the allowed traffic matrix (source of truth)
+#### Step 3.2 — Document the allowed traffic matrix (source of truth) (COMPLETED)
 
 **What:** Encode the matrix below as comments in policy Terraform module README.
 
@@ -619,7 +623,7 @@ with:
 
 ---
 
-#### Step 3.3 — Apply default-deny baseline (Terraform)
+#### Step 3.3 — Apply default-deny baseline (Terraform) (COMPLETED)
 
 **What:** In namespace `codereview`, create:
 
@@ -636,7 +640,7 @@ with:
 
 ---
 
-#### Step 3.4 — Allow DNS egress (all app pods)
+#### Step 3.4 — Allow DNS egress (all app pods) (COMPLETED)
 
 **What:** Policy permitting egress to `kube-system` namespace on port 53 UDP/TCP to pods labeled `k8s-app: kube-dns` (label varies by cluster — discover on target cluster).
 
@@ -648,7 +652,7 @@ with:
 
 ---
 
-#### Step 3.5 — Application allow policies
+#### Step 3.5 — Application allow policies (COMPLETED)
 
 **What:** Create scoped policies (Terraform), one file per flow:
 
@@ -666,7 +670,7 @@ with:
 
 ---
 
-#### Step 3.6 — Prometheus scraping policy (critical for observability)
+#### Step 3.6 — Prometheus scraping policy (COMPLETED)
 
 **What:** Ingress policy on **scraped pods** (`dotnet-api`, `php-service`):
 
@@ -688,7 +692,7 @@ ingress from:
 
 ---
 
-#### Step 3.7 — Health probe and NodePort considerations
+#### Step 3.7 — Health probe and NodePort considerations (COMPLETED)
 
 **What:**
 
@@ -704,7 +708,7 @@ ingress from:
 
 ---
 
-#### Step 3.8 — Vault / VSO network paths
+#### Step 3.8 — Vault / VSO network paths (COMPLETED)
 
 **What:** If VSO runs in `vault` namespace and watches `codereview`:
 
@@ -717,7 +721,7 @@ ingress from:
 
 ---
 
-#### Step 3.9 — Validate with network policy conformance tests
+#### Step 3.9 — Validate with network policy conformance tests (COMPLETED)
 
 **What:** Run manual checks from temporary debug pods (`kubectl run netshoot`) and confirm:
 
@@ -900,6 +904,26 @@ terraform/
 
 ---
 
+#### Step 4.11 — Dedicated grafana VaultAuth binding (TODO from Area 3)
+
+**What:** Currently `k8s/base/vault-static-secrets.yaml` uses `dotnet-api-vault-auth` for the grafana `VaultStaticSecret`. This means `sa-dotnet-api`'s Vault role can read grafana admin credentials — violates least privilege. Fix requires:
+
+1. Create a new Vault role `grafana-role` bound to `sa-grafana` in `terraform/environments/kind/main.tf` (`module.vault_auth.roles`).
+2. Create a new Vault policy `codereview-grafana` in `terraform/modules/vault-policies/main.tf` covering only `secret/data/codereview/grafana/*`.
+3. Add a `VaultAuth` CR `grafana-vault-auth` in `terraform/modules/vault-secrets-operator/` (or `k8s/base/vault-static-secrets.yaml`) referencing `grafana-role`.
+4. Update the grafana `VaultStaticSecret` in `k8s/base/vault-static-secrets.yaml` to use `vaultAuthRef: grafana-vault-auth`.
+5. Seed the grafana Vault secret path with `sa-grafana` SA (currently seeded but readable by dotnet-api's role).
+
+**Why:** `sa-dotnet-api` should never have read access to `secret/data/codereview/grafana/config`. The shared-auth workaround was applied in Area 1 as a quick fix (see operational log Issue 2). This step properly separates the identities.
+
+**Where:** `terraform/modules/vault-policies/main.tf`, `terraform/environments/kind/main.tf`, `terraform/modules/vault-secrets-operator/`, `k8s/base/vault-static-secrets.yaml`.
+
+**Risk:** grafana pod will fail with `CreateContainerConfigError` during the transition if the new `grafana-vault-auth` is not synced before the old `dotnet-api-vault-auth` reference is removed. Sequence: (1) add new role/policy/auth, apply Terraform, verify grafana-secrets refreshes; (2) then update `vault-static-secrets.yaml` to use new auth ref; (3) push to deploy branch.
+
+**Dependency:** Area 1 (Vault infrastructure already in place).
+
+---
+
 ## Part D — Consolidated Timeline (suggested sprints)
 
 | Sprint | Focus | Key deliverables |
@@ -959,6 +983,89 @@ terraform/
 | Trivy gate | CRITICAL only | Balance security vs velocity |
 | NetworkPolicy owner | Terraform | Infrastructure layer |
 | MySQL exporter in K8s | Optional follow-up | Not in current K8s manifests; add if parity with Compose needed |
+| kind CNI | Calico v3.29.0 (replaced kindnet) | kindnet does not enforce NetworkPolicy; required for Area 3 |
+
+---
+
+## Appendix — Operational log (bootstrap issues and fixes)
+
+### 2026-06-12 — New machine bootstrap: kind cluster on Windows
+
+#### Issue 1: deploy branch lag
+
+**What happened:** `origin/deploy` was at `f028f1fb` while `origin/main` was at `897aa49b`. CI had not updated deploy after the linux-machine commit. As a result, ArgoCD was syncing the old manifests: `vault-static-secrets.yaml` missing, inline `stringData` secrets still present, Step 0.4 labels incomplete on some services.
+
+**Fix:** Manually promoted main to deploy with pinned image SHA (`f028f1fb` — the last CI-built tag), matching the CI `sed` substitution pattern:
+```
+git checkout -b deploy origin/main
+sed -i "s|:latest|:f028f1fb589d3ea1f1f81896bc00597c47f1b729|g" k8s/base/{dotnet-api,php-service,react-app}.yaml
+git commit && git push origin deploy --force
+```
+**Trigger:** Run CI on main before starting any new cluster bootstrap to ensure deploy is current.
+
+---
+
+#### Issue 2: Vault policy did not cover grafana secret path
+
+**What happened:** `vault-static-secrets.yaml` uses `dotnet-api-vault-auth` for all three `VaultStaticSecret` resources including grafana, but the `codereview-dotnet-api` Vault policy only covered `secret/data/codereview/dotnet-api/*`. VSO could not read `secret/data/codereview/grafana/config`, so `grafana-secrets` K8s Secret was never created. Grafana pods failed with `CreateContainerConfigError: secret "grafana-secrets" not found`.
+
+**Fix:** Extended `terraform/modules/vault-policies/main.tf` `dotnet_api` policy to also cover `secret/data/codereview/grafana/config`. Applied via `terraform apply -target=module.vault_policies`.
+
+**TODO:** Create a dedicated `sa-grafana` VaultAuth binding with its own Vault role and policy scoped only to grafana paths. The current shared-auth approach violates least-privilege — dotnet-api's SA should not be able to read grafana admin credentials.
+
+---
+
+#### Issue 3: ArgoCD prune deleted Terraform-owned prometheus SA and RBAC
+
+**What happened:** The old deploy branch's `monitoring.yaml` contained `ServiceAccount/ClusterRole/ClusterRoleBinding` for prometheus (ArgoCD-managed). The new deploy branch's `monitoring.yaml` (from main, Step 4.8) removed those resources. ArgoCD's prune policy deleted them. Terraform's `module.service_accounts` and `module.prometheus_rbac` had created equivalent resources, but ArgoCD's prune deleted them because they still carried the ArgoCD tracking annotation from the old sync.
+
+**Symptoms:** New prometheus RS `668bf9d7b8` stuck at `CURRENT=0` with `FailedCreate: serviceaccount "prometheus" not found`.
+
+**Fix:** `terraform apply -target=module.service_accounts -target=module.prometheus_rbac` recreated all three resources. Then `kubectl rollout restart deployment/prometheus` forced the RS to retry pod creation with the now-present SA.
+
+**Why this won't recur:** The new `monitoring.yaml` does not declare these resources, so ArgoCD no longer tracks them. Future syncs will not touch them. Terraform is now the sole owner.
+
+**Prevention:** When removing a resource from an ArgoCD-managed manifest that Terraform also manages, run `terraform apply` for the affected module immediately after the ArgoCD sync completes (before pods start failing).
+
+---
+
+---
+
+### 2026-06-12 — Area 3 NetworkPolicies implemented
+
+**What was applied:** All 11 `NetworkPolicy` resources in the `codereview` namespace, owned by Terraform (`terraform/modules/network-policies/main.tf`). Applied atomically in a single `terraform apply -target=module.network_policies` call. No window where default-deny existed without DNS allow.
+
+**Resources created:**
+```
+default-deny-all, allow-dns-egress, allow-react-app-ingress,
+allow-react-app-egress, allow-dotnet-api-ingress, allow-dotnet-api-egress,
+allow-mysql-ingress, allow-php-service-ingress, allow-prometheus-egress,
+allow-prometheus-ingress, allow-grafana-egress
+```
+
+**Conformance test results (kubectl exec, 2026-06-12):**
+
+| Path | Expected | Result |
+|------|----------|--------|
+| react-app → dotnet-api:5116 | ALLOWED | HTTP 503 response ✓ |
+| react-app → php-service:8000 | BLOCKED | timeout ✓ |
+| dotnet-api → php-service:8000 | ALLOWED | `{"status":"ok"}` ✓ |
+| php-service → mysql:3306 | BLOCKED | timeout ✓ |
+| php-service → dotnet-api:5116 | BLOCKED | timeout ✓ |
+| mysql → dotnet-api:5116 | BLOCKED | ETIMEDOUT ✓ |
+| grafana → prometheus:9090 | ALLOWED | "Prometheus Server is Healthy." ✓ |
+| prometheus → dotnet-api:5116/metrics | ALLOWED | Prometheus target UP ✓ |
+| DNS (all pods) | ALLOWED | nslookup resolves ✓ |
+| NodePort localhost:3000 | ALLOWED | React HTML served ✓ |
+
+**Post-apply cluster state:** All 10 pods Running 1/1, ArgoCD Synced/Healthy, VSO secrets intact (dotnet-secrets, mysql-secret, grafana-secrets all present).
+
+**Design notes:**
+- Prometheus port-80 probes time out (correct — NetworkPolicy blocks non-5116 ports on dotnet-api)
+- php-service /metrics returns 401 (pre-existing app auth issue, not NetworkPolicy; traffic IS reaching php-service)
+- Kubelet liveness/readiness probes exempt from NetworkPolicy enforcement in Calico on kind
+
+**Outstanding TODO:** Create dedicated grafana VaultAuth binding with its own Vault role; current setup uses `dotnet-api-vault-auth` for grafana VSS which violates least-privilege.
 
 ---
 

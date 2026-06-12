@@ -22,3 +22,8 @@ output "vault_ui_node_port" {
   description = "Vault UI NodePort."
   value       = module.vault.ui_node_port
 }
+
+output "network_policy_names" {
+  description = "NetworkPolicy resources created in the codereview namespace."
+  value       = module.network_policies.policy_names
+}
