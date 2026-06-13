@@ -11,7 +11,7 @@ Terraform owns cluster and security resources that must exist before ArgoCD sync
 | Namespaces (`codereview`, `vault`) | `namespace` | — |
 | ServiceAccounts (sa-react-app, sa-dotnet-api, sa-php-service, sa-mysql, sa-grafana, prometheus) | `service-accounts` | `codereview` |
 | Prometheus ClusterRole + ClusterRoleBinding | `rbac/prometheus` | cluster-scoped |
-| Vault dev server (Helm release) | `vault` | `vault` |
+| Vault server — standalone, file storage PVC (Helm release) | `vault` | `vault` |
 | Vault Secrets Operator (Helm release) | `vault-secrets-operator` | `vault` |
 | VaultConnection CR | `vault-secrets-operator` | `codereview` |
 | Vault Kubernetes auth backend + config | `vault-auth` | Vault |
@@ -70,39 +70,65 @@ If a non-kind environment is introduced in the future, this document and the CI 
 
 ### First apply (new cluster)
 
-Vault CRDs from the VSO Helm release must exist before `kubernetes_manifest` resources referencing them are created. Apply in stages to avoid a chicken-and-egg plan failure:
+The Vault Terraform provider was removed because it validates its token against the Vault API
+at plan time — before the Vault pod exists. Vault policies and auth roles are now configured
+by `scripts/configure-vault.sh` (vault CLI) after Vault is initialized and unsealed.
 
-```bash
+```powershell
 cd terraform/environments/kind
-
-# Stage 1: namespaces, SAs, RBAC, Vault server, Vault policies/auth
 terraform init
-terraform apply -target=module.namespaces \
-                -target=module.service_accounts \
-                -target=module.prometheus_rbac \
-                -target=module.vault \
-                -target=module.vault_policies \
-                -target=module.vault_auth \
-                -target=module.vault_secrets_operator.helm_release.vso
 
-# Stage 2: VaultConnection + VaultAuth CRs (CRDs now exist), NetworkPolicies
+# Stage A: install VSO Helm release — registers VaultConnection/VaultAuth CRDs
+terraform apply "-target=module.vault_secrets_operator.helm_release.vso"
+
+# Stage B: full apply — kubernetes_manifest resources can now plan against existing CRDs
 terraform apply
 ```
 
 ### Subsequent applies (cluster already running)
 
-```bash
+```powershell
 cd terraform/environments/kind
 terraform plan   # review before applying
 terraform apply
 ```
 
-### Seed Vault secrets (after every cluster restart)
+### Initialize and unseal Vault (once per cluster creation)
 
-Vault runs in dev mode and loses all KV data on pod restart. Re-seed after each cluster start:
+Run in **Git Bash** after `terraform apply`. Requires vault CLI in PATH.
 
 ```bash
-export VAULT_ADDR=http://127.0.0.1:30200 VAULT_TOKEN=root
+export VAULT_ADDR=http://127.0.0.1:30200
+kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=vault -n vault --timeout=120s
+
+vault operator init -key-shares=1 -key-threshold=1 | tee vault-init.txt
+# ⚠ Save vault-init.txt to a password manager, then delete it.
+
+UNSEAL_KEY=$(grep 'Unseal Key 1:' vault-init.txt | awk '{print $NF}')
+export VAULT_TOKEN=$(grep 'Initial Root Token:' vault-init.txt | awk '{print $NF}')
+
+vault operator unseal "$UNSEAL_KEY"
+kubectl create secret generic vault-unseal-keys -n vault --from-literal=key="$UNSEAL_KEY"
+rm vault-init.txt
+```
+
+**Auto-unseal behaviour:** The Vault pod has a `postStart` lifecycle hook that reads `/vault/userconfig/vault-unseal-keys/key` and calls `vault operator unseal`. On all subsequent pod restarts (crash recovery, rolling update, kind container stop/start), Vault unseals automatically.
+
+**Data persistence:** Vault KV data is stored on a 1 Gi PVC. Data survives pod restarts and kind container stop/start. Data is lost only on `kind delete cluster` (which destroys the kind node and all PVCs). After a full cluster deletion, repeat init + configure + seed.
+
+### Configure Vault (after init + unseal, once per cluster creation)
+
+```bash
+bash scripts/configure-vault.sh
+```
+
+Creates: KV v2 engine, ACL policies (codereview-dotnet-api, codereview-grafana, codereview-php-service), Kubernetes auth method, auth roles (dotnet-api-role, grafana-role).
+
+### Seed Vault secrets (after configure-vault.sh, once per cluster creation)
+
+With VAULT_ADDR and VAULT_TOKEN already exported from the init step:
+
+```bash
 bash scripts/seed-vault.sh
 ```
 
@@ -123,7 +149,7 @@ Rotate all placeholder values from `seed-vault.sh` before using this outside loc
 | `modules/namespace` | A single Kubernetes namespace with standard labels |
 | `modules/service-accounts` | One or more ServiceAccounts from a map input |
 | `modules/rbac/prometheus` | ClusterRole + ClusterRoleBinding for Prometheus pod discovery |
-| `modules/vault` | Vault dev server via Helm, NodePort 30200 |
+| `modules/vault` | Vault server (standalone, file storage PVC) via Helm, NodePort 30200 |
 | `modules/vault-policies` | Vault ACL policies (`codereview-dotnet-api`, `codereview-grafana`) |
 | `modules/vault-auth` | Vault Kubernetes auth backend + roles |
 | `modules/vault-secrets-operator` | VSO Helm release, VaultConnection CR, VaultAuth CRs |

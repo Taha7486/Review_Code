@@ -48,3 +48,7 @@ docker-compose.override.yml
 crash.log
 crash.*.log
 *.tfplan
+tfplan-*
+
+# Vault bootstrap output — contains unseal key and root token; never commit
+vault-init.txt

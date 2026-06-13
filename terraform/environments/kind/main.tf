@@ -10,10 +10,6 @@ terraform {
       source  = "hashicorp/helm"
       version = "~> 2.17"
     }
-    vault = {
-      source  = "hashicorp/vault"
-      version = "~> 4.5"
-    }
   }
 }
 
@@ -27,11 +23,6 @@ provider "helm" {
     config_path    = var.kubeconfig_path
     config_context = var.kube_context
   }
-}
-
-provider "vault" {
-  address = var.vault_address
-  token   = var.vault_token
 }
 
 module "namespaces" {
@@ -80,37 +71,16 @@ module "prometheus_rbac" {
   service_account_name = module.service_accounts.names["prometheus"]
 }
 
-module "vault_policies" {
-  source = "../../modules/vault-policies"
-}
-
 module "vault" {
-  source         = "../../modules/vault"
-  namespace      = module.namespaces["vault"].name
-  ui_node_port   = 30200
-  dev_root_token = "root"
+  source       = "../../modules/vault"
+  namespace    = module.namespaces["vault"].name
+  ui_node_port = 30200
 }
 
-module "vault_auth" {
-  source          = "../../modules/vault-auth"
-  kubernetes_host = "https://kubernetes.default.svc"
-  
-  roles = {
-    "dotnet-api-role" = {
-      bound_service_account_names      = ["sa-dotnet-api"]
-      bound_service_account_namespaces = [module.namespaces["codereview"].name]
-      policies                         = [module.vault_policies.dotnet_policy_name]
-      token_ttl                        = 3600
-    }
-    "grafana-role" = {
-      bound_service_account_names      = ["sa-grafana"]
-      bound_service_account_namespaces = [module.namespaces["codereview"].name]
-      policies                         = [module.vault_policies.grafana_policy_name]
-      token_ttl                        = 3600
-    }
-  }
-  depends_on = [module.vault]
-}
+# Vault policies and auth roles are configured by configure-vault.sh (vault CLI)
+# after vault operator init + unseal. The Vault Terraform provider cannot be used
+# here because it validates its token against the Vault API at plan time — before
+# the Vault pod exists. See scripts/configure-vault.sh and terraform/README.md.
 
 module "vault_secrets_operator" {
   source                = "../../modules/vault-secrets-operator"
@@ -118,7 +88,7 @@ module "vault_secrets_operator" {
   app_namespace         = module.namespaces["codereview"].name
   vault_address         = "http://vault.vault.svc.cluster.local:8200"
   vault_connection_name = "vault-connection"
-  
+
   vault_auths = {
     "dotnet-api-vault-auth" = {
       role            = "dotnet-api-role"
@@ -130,7 +100,7 @@ module "vault_secrets_operator" {
     }
   }
 
-  depends_on = [module.vault_auth]
+  depends_on = [module.vault]
 }
 
 module "network_policies" {

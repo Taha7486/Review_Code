@@ -15,11 +15,10 @@ variable "chart_version" {
   default     = "0.28.1"
 }
 
-variable "dev_root_token" {
-  description = "Root token used by the Vault dev server. Dev-only; do not use for production."
+variable "storage_size" {
+  description = "PVC size for Vault file storage. Keeps KV data across pod restarts."
   type        = string
-  default     = "root"
-  sensitive   = true
+  default     = "1Gi"
 }
 
 variable "ui_node_port" {

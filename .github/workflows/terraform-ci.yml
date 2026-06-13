@@ -2,13 +2,7 @@ name: Terraform CI
 
 # Runs on any PR or push to main that touches terraform sources.
 # Scope: fmt-check, init, validate.
-#
-# terraform plan is intentionally excluded: the kind environment requires a live
-# Kubernetes cluster (kubernetes + helm providers need a reachable kubeconfig) and
-# a running Vault instance (vault provider). Neither is available in GitHub Actions
-# runners without spinning up the full platform stack. Plan should be added in a
-# future step that provisions a kind cluster in CI, or runs against a dedicated
-# staging environment. See docs/infrastructure-hardening-plan.md step 4.9.
+
 
 on:
   push:

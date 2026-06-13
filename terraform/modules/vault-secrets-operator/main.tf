@@ -4,6 +4,10 @@ resource "helm_release" "vso" {
   repository = "https://helm.releases.hashicorp.com"
   chart      = "vault-secrets-operator"
   version    = var.chart_version
+
+  # CRDs are registered when chart resources are applied, not when the controller
+  # pod is ready. wait = false avoids a 5-minute timeout on image pull.
+  wait = false
 }
 
 resource "kubernetes_manifest" "vault_connection" {

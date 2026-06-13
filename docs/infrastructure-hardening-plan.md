@@ -1092,4 +1092,44 @@ allow-prometheus-ingress, allow-grafana-egress
 
 ---
 
+---
+
+### 2026-06-13 — Vault migrated from dev mode to server mode (persistent PVC + auto-unseal)
+
+**Problem addressed:** Vault ran in dev mode, which stores all KV data in memory. Any Vault pod restart (crash, rolling update, kind container stop/start) destroyed all secrets. VSO-synced K8s Secrets (`dotnet-secrets`, `mysql-secret`, `grafana-secrets`) then fell out of sync, causing `CreateContainerConfigError` on subsequent application pod restarts. Every cluster session required manual re-seeding.
+
+**Changes applied:**
+
+1. `terraform/modules/vault/main.tf` — Switched from `server.dev` to `server.standalone` with file storage HCL config. Added `dataStorage` (1 Gi PVC). Added optional volume mount for `vault-unseal-keys` K8s Secret. Added `lifecycle.postStart` hook: reads `/vault/userconfig/vault-unseal-keys/key` and calls `vault operator unseal` on every pod start.
+
+2. `terraform/modules/vault/variables.tf` — Removed `dev_root_token`; added `storage_size` (default `"1Gi"`).
+
+3. `terraform/environments/kind/main.tf` — Removed `dev_root_token = "root"` from vault module call.
+
+4. `scripts/seed-vault.sh` — Rewritten to auto-generate all secrets (`JWT_SECRET_KEY`, `INTERNAL_SERVICE_SECRET`, `MYSQL_ROOT_PASSWORD`, `GRAFANA_ADMIN_PASSWORD`) using `openssl rand -hex`. Removed `VAULT_TOKEN=root` default (server mode root token comes from `vault operator init`). Script now fails fast if `VAULT_TOKEN` is not exported. Prints all generated values for the operator to save.
+
+5. `.gitignore` — Added `vault-init.txt` to prevent accidental commit of unseal key and root token.
+
+6. `CLAUDE.md` — Added step 3a (vault operator init + unseal + create vault-unseal-keys secret). Updated step 4 to reflect new VAULT_TOKEN export. Added note on persistence behaviour.
+
+7. `terraform/README.md` — Replaced "Seed Vault secrets after every cluster restart" with full init/unseal procedure and explanation of auto-unseal and PVC persistence.
+
+**Bootstrap procedure (one-time per cluster creation):**
+```
+terraform apply
+vault operator init -key-shares=1 -key-threshold=1 | tee vault-init.txt
+vault operator unseal <Unseal Key 1>
+kubectl create secret generic vault-unseal-keys -n vault --from-literal=key=<Unseal Key 1>
+export VAULT_TOKEN=<Initial Root Token>
+bash scripts/seed-vault.sh
+rm vault-init.txt   # after saving to password manager
+```
+
+**Persistence behaviour:**
+- Vault pod crash / restart: ✅ data preserved (PVC); auto-unseal via postStart hook
+- Kind container stop + start (no `kind delete cluster`): ✅ data preserved; auto-unseal via hook
+- `kind delete cluster` (full recreation): ❌ PVC destroyed; repeat init + seed
+
+**Public repo note (2026-06-13):** GITHUB_PAT was revoked on github.com after discovery that it was committed in plaintext in `k8s/base/dotnet-api.yaml` history. The seed script now accepts GITHUB_PAT via environment variable and defaults to a placeholder; the app functions without a valid PAT.
+
 *End of plan — implementation code and manifests to be added in subsequent work items per area.*
