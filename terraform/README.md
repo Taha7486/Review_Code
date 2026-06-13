@@ -49,18 +49,17 @@ See operational log in `docs/infrastructure-hardening-plan.md` (Issue: bootstrap
 | `terraform fmt -check -recursive` | Yes | Fails the build if any `.tf` file is not formatted |
 | `terraform init` | Yes | Downloads providers using the committed `.terraform.lock.hcl` |
 | `terraform validate` | Yes | Validates schema and cross-references; no live connectivity needed |
-| `terraform plan` | **No** | Requires live providers — see below |
+| `terraform plan` | **No** | Requires live cluster — see below |
 | `terraform apply` | **No** | Manual local operation only |
 
 ### Why plan/apply are not in CI
 
-The kind environment uses three providers that all require live endpoints at plan time:
+The kind environment uses two providers that require live endpoints at plan time:
 
 - `hashicorp/kubernetes` — needs a reachable kubeconfig (kind cluster)
 - `hashicorp/helm` — needs the same Kubernetes API
-- `hashicorp/vault` — needs a running Vault instance (NodePort 30200)
 
-GitHub Actions runners have none of these. Exposing the local kind cluster to CI is not viable. A remote environment (managed Kubernetes + Vault) would enable plan/apply in CI, but that is out of scope for this kind-based setup.
+GitHub Actions runners have neither. Exposing the local kind cluster to CI is not viable. A remote environment with managed Kubernetes would enable plan/apply in CI, but that is out of scope for this kind-based setup.
 
 **Consequence:** `terraform plan` must be run locally and reviewed before every `terraform apply`. This is a structural property of the kind environment, not a deferred TODO.
 
@@ -150,10 +149,10 @@ Rotate all placeholder values from `seed-vault.sh` before using this outside loc
 | `modules/service-accounts` | One or more ServiceAccounts from a map input |
 | `modules/rbac/prometheus` | ClusterRole + ClusterRoleBinding for Prometheus pod discovery |
 | `modules/vault` | Vault server (standalone, file storage PVC) via Helm, NodePort 30200 |
-| `modules/vault-policies` | Vault ACL policies (`codereview-dotnet-api`, `codereview-grafana`) |
-| `modules/vault-auth` | Vault Kubernetes auth backend + roles |
 | `modules/vault-secrets-operator` | VSO Helm release, VaultConnection CR, VaultAuth CRs |
 | `modules/network-policies` | 11 NetworkPolicies: default-deny baseline + per-service allow rules |
+
+Vault ACL policies and Kubernetes auth roles are **not** Terraform-managed. They are configured by `scripts/configure-vault.sh` (vault CLI) after Vault is initialized and unsealed. The `modules/vault-policies` and `modules/vault-auth` modules were removed because the Vault Terraform provider validates its token against the Vault API at plan time — before the Vault pod exists.
 
 ## Production Environment
 

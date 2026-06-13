@@ -50,69 +50,72 @@ npm start                                        # dev server on port 3000
 ```
 
 ### Kubernetes (kind)
-```bash
-# 1. Create cluster
-kind create cluster --config kind-config.yaml
 
-# 1b. Install Calico CNI — REQUIRED before anything else.
-#     kind-config.yaml disables the default CNI. Without Calico the node stays
-#     NotReady and every pod remains Pending indefinitely.
+**Step 1 — Create cluster** (PowerShell)
+```powershell
+kind create cluster --config kind-config.yaml
+```
+
+**Step 1b — Install Calico CNI** (PowerShell) — REQUIRED before anything else. `kind-config.yaml` disables the default CNI; without Calico the node stays `NotReady` and every pod stays `Pending`.
+```powershell
 kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.29.0/manifests/calico.yaml
 kubectl -n kube-system wait pod -l k8s-app=calico-node --for=condition=Ready --timeout=120s
+```
 
-# 2. Install ArgoCD
+**Step 2 — Install ArgoCD** (PowerShell)
+```powershell
 kubectl create namespace argocd
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+```
 
-# 3. Provision platform layer — two-stage apply:
-#    Stage A installs the VSO Helm release (registers VaultConnection/VaultAuth CRDs).
-#    Stage B applies everything else (kubernetes_manifest resources need those CRDs to exist at plan time).
-#    No Vault provider in Terraform — Vault policies and auth roles are configured via vault CLI in step 3b.
+**Step 3 — Stage A: provision Vault + VSO Helm releases** (PowerShell)
+
+Two-stage apply is required: Stage A installs the VSO Helm release which registers the `VaultConnection`/`VaultAuth` CRDs. Stage B (after Vault is unsealed) applies everything else — `kubernetes_manifest` resources need those CRDs to exist at plan time.
+```powershell
 cd terraform/environments/kind
 terraform init
 terraform apply "-target=module.vault_secrets_operator.helm_release.vso"
+```
 
-# 3b. Initialize, unseal, and configure Vault — run ONCE per cluster creation.
-#     Run in Git Bash (not PowerShell). Requires vault CLI in PATH.
-#     Must run BEFORE Stage B: the VSO webhook validates VaultConnection/VaultAuth
-#     against a live Vault instance, so Vault must be initialized and unsealed first.
-#     Vault runs in server mode (persistent PVC); after this step it auto-unseals
-#     on future pod restarts via the vault-unseal-keys K8s Secret.
+**Step 3b — Initialize, unseal, and configure Vault** (Git Bash) — run ONCE per cluster creation, BEFORE Stage B.
+
+Vault runs in server mode with a 1 Gi PVC. After this step it auto-unseals on future pod restarts via the `vault-unseal-keys` K8s Secret. Vault policies and auth roles are configured by `scripts/configure-vault.sh` (vault CLI) — Terraform does not manage them.
+```bash
 export VAULT_ADDR=http://127.0.0.1:30200
 kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=vault -n vault --timeout=120s
 
 vault operator init -key-shares=1 -key-threshold=1 | tee vault-init.txt
 # ⚠ vault-init.txt contains your unseal key and root token.
-#   Save both to a password manager, then delete the file.
+#   Save both to a password manager NOW, then delete the file.
 
 UNSEAL_KEY=$(grep 'Unseal Key 1:' vault-init.txt | awk '{print $NF}')
 export VAULT_TOKEN=$(grep 'Initial Root Token:' vault-init.txt | awk '{print $NF}')
 
 vault operator unseal "$UNSEAL_KEY"
-
-# Store unseal key so Vault auto-unseals on future pod restarts:
 kubectl create secret generic vault-unseal-keys -n vault --from-literal=key="$UNSEAL_KEY"
-rm vault-init.txt   # delete after saving to password manager
+rm vault-init.txt
 
-# Configure Vault auth methods, policies, and roles:
 bash scripts/configure-vault.sh
+```
 
-# 3c. Stage B — apply remaining platform resources (ServiceAccounts, RBAC,
-#     NetworkPolicies, VaultConnection, VaultAuth CRs). Vault must be running
-#     and unsealed before this step.
+**Step 3c — Stage B: full Terraform apply** (PowerShell)
+```powershell
 terraform apply
+```
 
-# 4. Seed Vault secrets — generates fresh random values and prints them.
-#    Save the output to a password manager. Run in Git Bash.
+**Step 4 — Seed Vault secrets** (Git Bash) — generates fresh random values and prints them. Save the output to a password manager.
+```bash
 bash scripts/seed-vault.sh
-# Optional: if you have a GitHub PAT:
+# Optional — add a GitHub PAT after seeding:
 #   vault kv patch secret/codereview/dotnet-api/app GITHUB_PAT=<your-pat>
+```
 
-# 5. Deploy application via ArgoCD
+**Step 5 — Deploy application** (PowerShell)
+```powershell
 kubectl apply -f k8s/argocd/app-codereview.yaml
 ```
 
-**Re-seeding after a cluster deletion:** If you delete the kind cluster and recreate it, the PVC is gone — repeat steps 1b and 3–4 in full (new `vault operator init`, new secrets). If you only restart the kind Docker container (stop/start without `kind delete cluster`), the PVC data persists and Vault auto-unseals via the K8s Secret — no re-seeding needed.
+**Re-seeding after a cluster deletion:** PVC is gone on `kind delete cluster` — repeat steps 1b and 3–4 in full (new `vault operator init`, new secrets). If you only stop/start the kind Docker container without deleting the cluster, the PVC persists and Vault auto-unseals — no re-seeding needed.
 
 ## Architecture
 
@@ -149,27 +152,27 @@ Defined in `infrastructure/mysql/DB_Schema.sql` and applied as a K8s ConfigMap (
 ### Secrets Management (K8s)
 - HashiCorp Vault runs in **server mode** (standalone, file storage on a 1 Gi PVC) in the `vault` namespace. Data persists across pod restarts and kind container stop/start. It is lost only on full cluster deletion (`kind delete cluster`), which requires re-running steps 3a and 4 from the bootstrap.
 - Vault Secrets Operator (VSO) syncs secrets into K8s via `VaultStaticSecret` CRDs in `k8s/base/vault-static-secrets.yaml`.
-- Vault auth bindings (least-privilege):
-  - `sa-dotnet-api` → `dotnet-api-vault-auth` → `codereview-dotnet-api` policy → `secret/data/codereview/dotnet-api/*`
-  - `sa-grafana` → `grafana-vault-auth` → `codereview-grafana` policy → `secret/data/codereview/grafana/*`
+- Vault auth bindings: two VaultAuth CRs in `codereview` namespace, both pointing to the same VaultConnection. VSO 0.9.x shares one Vault client per `(connection + method + namespace)`, so in practice the `dotnet-api-vault-auth` token is used for all secret reads in the namespace — including `grafana-secrets`. The `codereview-dotnet-api` policy therefore also covers `secret/data/codereview/grafana/*` (see `scripts/configure-vault.sh`).
+  - `sa-dotnet-api` → `dotnet-api-vault-auth` → `codereview-dotnet-api` policy → `secret/data/codereview/dotnet-api/*` + `secret/data/codereview/grafana/*`
+  - `sa-grafana` → `grafana-vault-auth` → `codereview-grafana` policy → `secret/data/codereview/grafana/*` (role exists; VSO shared-client caveat above applies)
   - `sa-php-service` has no Vault identity; reads `INTERNAL_SERVICE_SECRET` from the `dotnet-secrets` K8s Secret (shared with dotnet-api via `secretKeyRef`)
 - For local Docker Compose, secrets come from `.env`.
 
 ### Deployment Model (GitOps)
 - ArgoCD watches the `deploy` branch. Single application `codereview-app` syncs `k8s/base/` with prune + selfHeal.
 - CI pipeline (`.github/workflows/ci.yml`) builds images, scans with Trivy (blocks on CRITICAL), then updates image tags in the `deploy` branch.
-- **Terraform owns platform/security resources** (namespaces, ServiceAccounts, RBAC, Vault server + policies + auth bindings, VSO, NetworkPolicies). **ArgoCD owns app runtime** (Deployments, Services, ConfigMaps, VaultStaticSecrets). Never add Terraform-owned resource types to `k8s/base/`.
+- **Terraform owns platform/security resources** (namespaces, ServiceAccounts, RBAC, Vault server, VSO, NetworkPolicies). Vault ACL policies and Kubernetes auth roles are configured by `scripts/configure-vault.sh` (vault CLI) after Vault is initialized. **ArgoCD owns app runtime** (Deployments, Services, ConfigMaps, VaultStaticSecrets). Never add Terraform-owned resource types to `k8s/base/`.
 - See `terraform/README.md` for the full ownership table and boundary rule.
 
 ### Terraform CI
 - `terraform fmt -check` + `terraform init` + `terraform validate` run in CI on `terraform/**` changes (`.github/workflows/terraform-ci.yml`).
-- `terraform plan` and `apply` are **manual local operations only** — the kind environment's kubernetes/helm/vault providers require live endpoints not available to GitHub Actions runners.
+- `terraform plan` and `apply` are **manual local operations only** — the kind environment's kubernetes and helm providers require a live cluster endpoint not available to GitHub Actions runners.
 
 ### K8s Manifest Layout
 - `k8s/base/` — application manifests (ArgoCD-managed)
 - `k8s/argocd/` — ArgoCD Application CRs
 - `terraform/environments/kind/` — kind cluster environment (single entry point for `terraform apply`)
-- `terraform/modules/` — reusable modules: `namespace`, `service-accounts`, `rbac`, `vault`, `vault-policies`, `vault-auth`, `vault-secrets-operator`, `network-policies`
+- `terraform/modules/` — reusable modules: `namespace`, `service-accounts`, `rbac`, `vault`, `vault-secrets-operator`, `network-policies`
 
 ### NetworkPolicies
 - All 11 `NetworkPolicy` resources in the `codereview` namespace are Terraform-owned (`terraform/modules/network-policies/main.tf`).

@@ -38,8 +38,42 @@ The deployment follows the **GitOps** pattern using **ArgoCD**:
 
 ---
 
+## 🔐 Secrets Management
+
+Secrets are stored in **HashiCorp Vault** (standalone server mode, 1 Gi PVC, `vault` namespace) and synced into Kubernetes Secrets by the **Vault Secrets Operator (VSO)**.
+
+| K8s Secret | Vault path | Consumed by |
+|---|---|---|
+| `dotnet-secrets` | `secret/codereview/dotnet-api/app` | dotnet-api |
+| `mysql-secret` | `secret/codereview/dotnet-api/mysql` | dotnet-api, mysql |
+| `grafana-secrets` | `secret/codereview/grafana/config` | grafana |
+
+VSO uses `VaultStaticSecret` CRDs (in `k8s/base/vault-static-secrets.yaml`) to declare which Vault paths map to which K8s Secrets. The `VaultAuth` CRs that control Vault authentication are Terraform-managed; Vault ACL policies and auth roles are configured by `scripts/configure-vault.sh`.
+
+Vault auto-unseals on pod restart via a `postStart` lifecycle hook that reads the unseal key from the `vault-unseal-keys` K8s Secret (created once during initial bootstrap).
+
+## 🛡️ Network Policies
+
+All 11 `NetworkPolicy` resources in the `codereview` namespace are Terraform-managed (`terraform/modules/network-policies/`). CNI: Calico v3.29.0.
+
+Default posture: **deny all ingress and egress**, then selectively allow:
+
+| Allowed path | Port |
+|---|---|
+| Browser → react-app (NodePort) | 80 |
+| react-app → dotnet-api | 5116 |
+| dotnet-api → php-service | 8000 |
+| dotnet-api → mysql | 3306 |
+| dotnet-api → GitHub API (egress, non-RFC1918) | 443 |
+| prometheus → dotnet-api, php-service | 5116, 8000 |
+| grafana → prometheus | 9090 |
+| All pods → kube-dns | 53 |
+
+Explicitly blocked: php-service→mysql, php-service→dotnet-api, react-app→php-service, external NodePort access to dotnet-api/prometheus/grafana.
+
 ## 🛠️ Infrastructure as Code
 
-- **Base Manifests**: Located in `k8s/base/`
-- **ArgoCD Config**: Located in `k8s/argocd/`
+- **Base Manifests**: `k8s/base/` (ArgoCD-managed)
+- **ArgoCD Config**: `k8s/argocd/`
+- **Terraform**: `terraform/environments/kind/` and `terraform/modules/`
 - **Cluster Config**: `kind-config.yaml` for local development.
