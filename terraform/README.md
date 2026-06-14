@@ -18,7 +18,7 @@ Terraform owns cluster and security resources that must exist before ArgoCD sync
 | Vault auth roles (`dotnet-api-role`, `grafana-role`) | `vault-auth` | Vault |
 | Vault policies (`codereview-dotnet-api`, `codereview-grafana`) | `vault-policies` | Vault |
 | VaultAuth CRs (`dotnet-api-vault-auth`, `grafana-vault-auth`) | `vault-secrets-operator` | `codereview` |
-| NetworkPolicies (11 policies, default-deny baseline) | `network-policies` | `codereview` |
+| NetworkPolicies (12 policies, default-deny baseline) | `network-policies` | `codereview` |
 
 ### ArgoCD owns (application / runtime layer)
 
@@ -154,7 +154,7 @@ Rotate all placeholder values from `seed-vault.sh` before using this outside loc
 | `modules/rbac/prometheus` | ClusterRole + ClusterRoleBinding for Prometheus pod discovery |
 | `modules/vault` | Vault server (standalone, file storage PVC) via Helm, NodePort 30200 |
 | `modules/vault-secrets-operator` | VSO Helm release, VaultConnection CR, VaultAuth CRs |
-| `modules/network-policies` | 11 NetworkPolicies: default-deny baseline + per-service allow rules |
+| `modules/network-policies` | 12 NetworkPolicies: default-deny baseline + per-service allow rules |
 
 Vault ACL policies and Kubernetes auth roles are **not** Terraform-managed. They are configured by `scripts/configure-vault.sh` (vault CLI) after Vault is initialized and unsealed. The `modules/vault-policies` and `modules/vault-auth` modules were removed because the Vault Terraform provider validates its token against the Vault API at plan time — before the Vault pod exists.
 

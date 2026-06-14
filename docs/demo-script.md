@@ -3,7 +3,7 @@
 Use this script to showcase the power of the GitOps workflow implemented in this project.
 
 ## 1. Setup & Baseline
-- **Show ArgoCD**: Open `http://localhost:8080`. Point out that all services are `Synced` and `Healthy`.
+- **Show ArgoCD**: Open `https://localhost:8080` (self-signed cert — accept the browser warning; username `admin`). Point out that all services are `Synced` and `Healthy`.
 - **Show App**: Open `http://localhost:3000`. Perform one code analysis to show the system is working.
 - **Show Monitoring**: Open `http://localhost:3001`. Show the "Code Review" dashboard with live data.
 

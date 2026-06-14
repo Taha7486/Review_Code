@@ -32,7 +32,7 @@ A production-ready **Microservices DevOps Platform** that automates code quality
 
 | Service | Technology | Port | Description |
 | :--- | :--- | :--- | :--- |
-| **Frontend** | React 18, Tailwind | `3000` | Interactive Dashboard, Real-time status |
+| **Frontend** | React 19, Tailwind | `3000` | Interactive Dashboard, Real-time status |
 | **Backend** | .NET 9.0 Web API | `5116` | Orchestration, Auth, GitHub Integration |
 | **Analyzer** | PHP 8.2 (Slim) | `8000` | Static Code Analysis Engine |
 | **Database** | MySQL 8.0 | `3306` | Relational Data Store (Users, Reports) |
@@ -77,7 +77,6 @@ graph LR
     B -->|Display Report| A
     
     C -.->|metrics| F
-    D -.->|metrics| F
     F -->|visualize| G
     
     style B fill:#61dafb,color:#000
@@ -99,9 +98,9 @@ graph LR
 6. Dashboard displays complexity scores, security issues, and metrics
 
 ### Observability
-- Prometheus scrapes `/metrics` from both services
-- Grafana dashboards track: request latency, analysis duration, error rates
-- Custom metrics: `analysis_duration_seconds`, `vulnerabilities_detected_total`
+- Prometheus scrapes `/metrics` from `dotnet-api` pods only (php-service has no metrics endpoint)
+- Grafana dashboards track: completed analyses, files analyzed, issue breakdown by category/severity, analysis duration
+- Custom metrics: `code_review_analyses_started_total`, `code_review_issues_found_total`, `php_files_analyzed_total`, `code_review_analysis_duration_seconds`
 ## ✨ Key Features
 
 *   **⚡ Automated Branch Analysis:** Fetches and analyzes any GitHub branch in seconds.
@@ -155,7 +154,7 @@ graph LR
 
 4.  **Access Services:**
     *   **Frontend:** [http://localhost:3000](http://localhost:3000)
-    *   **ArgoCD UI:** [http://localhost:8080](http://localhost:8080)
+    *   **ArgoCD UI:** [https://localhost:8080](https://localhost:8080) (self-signed cert — accept browser warning; username `admin`)
     *   **Grafana:** [http://localhost:3001](http://localhost:3001)
 
 For detailed instructions, see the [GitOps Implementation Plan](docs/gitops-implementation-plan.md).

@@ -1132,4 +1132,72 @@ rm vault-init.txt   # after saving to password manager
 
 **Public repo note (2026-06-13):** GITHUB_PAT was revoked on github.com after discovery that it was committed in plaintext in `k8s/base/dotnet-api.yaml` history. The seed script now accepts GITHUB_PAT via environment variable and defaults to a placeholder; the app functions without a valid PAT.
 
+---
+
+### 2026-06-14 — Full end-to-end bootstrap and test on a fresh kind cluster
+
+**What was verified:** Complete bootstrap (Steps 1–6 from CLAUDE.md) on a fresh kind cluster, followed by end-to-end app testing and Grafana metrics verification.
+
+**Issues found and fixed during this session:**
+
+#### Issue 1: ArgoCD NodePort service missing from bootstrap steps
+
+**What happened:** `kubectl apply -f k8s/argocd/argocd-ui.yaml` was not included in the CLAUDE.md Step 2 instructions. The ArgoCD UI at https://localhost:8080 returned `ERR_EMPTY_RESPONSE` because the NodePort service (`argocd-server-nodeport`) did not exist.
+
+**Fix:** Applied `kubectl apply -f k8s/argocd/argocd-ui.yaml` manually, then added it to CLAUDE.md Step 2.
+
+**Note:** ArgoCD serves HTTPS (self-signed cert). Use `https://localhost:8080`, not http.
+
+---
+
+#### Issue 2: Prometheus pod SD producing duplicate targets and 401 errors
+
+**What happened:** Prometheus showed 2/6 UP in the `kubernetes-pods` job:
+- Two dotnet-api pods each appeared twice — once at `:5116` (UP) and once at port 80 (DOWN, timeout). The duplicate was caused by a bug in the port relabeling rule: `source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]` used only one label, so the regex `([^:]+)(?::\d+)?;(\d+)` never matched (it expects `IP:PORT;ANNOTATION_PORT`), leaving init-container targets unmodified at port 80.
+- Two php-service pods appeared at `:8000` returning 401 Unauthorized. The Slim 4 auth middleware rejects all requests to unknown paths including `/metrics`, and php-service has no metrics endpoint.
+
+**Fixes applied:**
+1. `k8s/base/monitoring.yaml` — Fixed source_labels to `[__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]`; added `__meta_kubernetes_pod_container_init: drop` rule to eliminate init-container targets.
+2. `k8s/base/php-service.yaml` — Changed `prometheus.io/scrape: "true"` to `"false"`.
+
+**Result:** Prometheus targets: 2/2 UP (only the two dotnet-api replicas, clean).
+
+---
+
+#### Issue 3: Grafana "Files Analyzed" and "Average Analysis Time" panels showed No data
+
+**What happened:** Two Grafana panels had no data after a successful analysis:
+- "Files Analyzed (Last Hour)" queried `sum(php_files_analyzed_total)` — metric never existed in dotnet-api.
+- "Average Analysis Time" queried `histogram_quantile(0.95, sum by (le) (rate(code_review_analysis_duration_seconds_bucket[5m])))` — the histogram metric existed in code but was commented out.
+
+**Fixes applied:**
+1. `dotnet-api/Services/PrometheusMetricsService.cs` — Added `php_files_analyzed_total` counter and `code_review_analysis_duration_seconds` histogram (exponential buckets: 1s, 2s, 4s, 8s, 16s, 32s, 64s, 128s).
+2. `dotnet-api/Services/IPrometheusMetricsService.cs` — Added `RecordFilesAnalyzed(int)` and `RecordAnalysisDuration(double)` to the interface.
+3. `dotnet-api/Services/AnalysisService.cs` — Uncommented and wired the calls at both analysis completion points.
+
+**Result:** Both metrics populated after the next analysis run.
+
+---
+
+#### Issue 4: Grafana "Average Analysis Time" gauge showed arc but no value
+
+**Root cause 1 — Range too small:** The gauge had `max: 500` (ms) but the query returned ms values. A real analysis (~8–90 seconds) = 8,000–90,000 ms, far above the max, causing Grafana to peg the arc at the right edge with no visible center text.
+
+**Root cause 2 — `rate()` inappropriate for infrequent events:** After fixing the range, the gauge still showed no value. The query used `rate(bucket[5m])` which requires the histogram counters to be actively increasing. With infrequent analyses (one every few minutes), `rate()` drops to 0 between runs, making `histogram_quantile(0.95, 0)` return NaN.
+
+**Fixes applied to `k8s/base/grafana-dashboard-import.yaml`:**
+1. Changed gauge unit from `ms` to `s`, max from 500 to 120, thresholds to green/yellow(30s)/red(60s).
+2. Changed query from `histogram_quantile(...rate(bucket[5m])) * 1000` to `histogram_quantile(...bucket)` (raw counters — gives p95 of all-time observations, appropriate for low-frequency batch operations).
+
+**Result:** Gauge shows "7.80s" in the green zone. All 4 Grafana panels fully populated.
+
+---
+
+**Final cluster state after all fixes:**
+- All 10 pods in `codereview` namespace: 1/1 Running
+- Prometheus targets: 2/2 UP (dotnet-api only)
+- ArgoCD: Synced + Healthy
+- Grafana dashboard: all panels populated (1 analysis, 29 files, 1.77K issues, 7.80s)
+- Analysis end-to-end: register → connect repo → analyze → results displayed ✓
+
 *End of plan — implementation code and manifests to be added in subsequent work items per area.*

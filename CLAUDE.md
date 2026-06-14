@@ -66,6 +66,8 @@ kubectl -n kube-system wait pod -l k8s-app=calico-node --for=condition=Ready --t
 ```powershell
 kubectl create namespace argocd
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+# Expose the UI via NodePort — this service is not in the upstream install manifest
+kubectl apply -f k8s/argocd/argocd-ui.yaml
 ```
 
 **Step 3 — Stage A: provision Vault + VSO Helm releases** (PowerShell)
@@ -122,6 +124,24 @@ bash scripts/seed-vault.sh
 kubectl apply -f k8s/argocd/app-codereview.yaml
 ```
 
+**Step 6 — Verify pods and access the app** (PowerShell)
+```powershell
+kubectl get pods -n codereview   # all pods should reach 1/1 Running within ~2 min
+```
+
+Browser access (kind host port mappings — no port-forward needed):
+- **React UI:** http://localhost:3000
+- **Grafana:** http://localhost:3001 — credentials: `admin` / read from `kubectl get secret grafana-secrets -n codereview -o jsonpath='{.data.admin-password}' | base64 -d`
+- **Prometheus:** http://localhost:9090
+- **ArgoCD:** https://localhost:8080 — ArgoCD uses a self-signed cert; accept the browser warning. Username: `admin`, password: `kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath='{.data.password}' | base64 -d`
+- **Vault UI:** http://localhost:30200
+
+Register a new user in the React UI (no pre-seeded accounts). Add your GitHub PAT if not done during seeding:
+```bash
+vault kv patch secret/codereview/dotnet-api/app GITHUB_PAT=<your-pat>
+kubectl rollout restart deployment/dotnet-api -n codereview
+```
+
 **Re-seeding after a cluster deletion:** PVC is gone on `kind delete cluster` — repeat steps 1b and 3–4 in full (new `vault operator init`, new secrets). If you only stop/start the kind Docker container without deleting the cluster, the PVC persists and Vault auto-unseals — no re-seeding needed.
 
 ## Architecture
@@ -145,7 +165,7 @@ Browser → React (nginx) → .NET API → GitHub API (fetch code)
 
 - React proxies `/api/` to `dotnet-api` (nginx proxy_pass in K8s; `REACT_APP_API_URL` env var in Docker Compose).
 - `.NET API` → `php-service` via HTTP POST with `Authorization: Bearer <INTERNAL_SERVICE_SECRET>`.
-- `.NET API` exposes `/metrics` for Prometheus scraping; custom metrics include `analysis_duration_seconds` and `vulnerabilities_detected_total`.
+- `.NET API` exposes `/metrics` for Prometheus scraping; custom metrics: `code_review_analyses_started_total` (by status label), `code_review_issues_found_total` (by severity+category), `php_files_analyzed_total`, `code_review_analysis_duration_seconds` (histogram).
 
 ### PHP Analysis Modules
 Three independent analyzers called by `dotnet-api`:
@@ -182,10 +202,13 @@ Defined in `infrastructure/mysql/DB_Schema.sql` and applied as a K8s ConfigMap (
 - `terraform/modules/` — reusable modules: `namespace`, `service-accounts`, `rbac`, `vault`, `vault-secrets-operator`, `network-policies`
 
 ### NetworkPolicies
-- All 11 `NetworkPolicy` resources in the `codereview` namespace are Terraform-owned (`terraform/modules/network-policies/main.tf`).
-- CNI: Calico v3.29.0 (kindnet disabled). Enforces policies including after kube-proxy NodePort DNAT.
-- Allowed traffic: browser→react-app, react-app→dotnet-api, dotnet-api→mysql/php-service/GitHub:443, prometheus→dotnet-api:5116/php-service:8000/k8s-API:443, grafana→prometheus, DNS.
-- Denied traffic: php-service→mysql, php-service→dotnet-api, react-app→php-service, mysql→*, external→dotnet-api/prometheus/grafana NodePorts.
+- All 12 `NetworkPolicy` resources in the `codereview` namespace are Terraform-owned (`terraform/modules/network-policies/main.tf`).
+- CNI: Calico v3.29.0 (kindnet disabled). Enforces policies **after** kube-proxy NodePort DNAT.
+- Allowed traffic: browser→react-app/grafana/prometheus (NodePort), react-app→dotnet-api, dotnet-api→mysql/php-service/GitHub:443, prometheus→dotnet-api:5116/k8s-API:**6443**, grafana→prometheus, DNS.
+- Denied traffic: php-service→mysql, php-service→dotnet-api, react-app→php-service, mysql→*, external→dotnet-api NodePort.
+- **Port 6443 note:** Prometheus egress to the Kubernetes API uses port 6443, not 443. kube-proxy DNAT rewrites `kubernetes.default.svc:443` to the actual control-plane endpoint (172.18.0.x:6443) before Calico evaluates the policy in the iptables FORWARD chain.
+- **Prometheus scraping:** Only `dotnet-api` pods are scraped (`prometheus.io/scrape: "true"` on port 5116). `php-service` has scraping disabled (`prometheus.io/scrape: "false"`) — it has no `/metrics` endpoint and the Slim 4 auth middleware would return 401.
+- **Prometheus pod SD relabeling:** The config drops init-container targets (`__meta_kubernetes_pod_container_init: true`) and correctly merges pod IP + annotation port using both `__address__` and `__meta_kubernetes_pod_annotation_prometheus_io_port` as source labels. This avoids duplicate targets from init containers.
 - See `terraform/modules/network-policies/README.md` for the full traffic matrix.
 
 ## Key Environment Variables

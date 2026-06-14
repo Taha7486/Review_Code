@@ -54,7 +54,7 @@ Vault auto-unseals on pod restart via a `postStart` lifecycle hook that reads th
 
 ## 🛡️ Network Policies
 
-All 11 `NetworkPolicy` resources in the `codereview` namespace are Terraform-managed (`terraform/modules/network-policies/`). CNI: Calico v3.29.0.
+All 12 `NetworkPolicy` resources in the `codereview` namespace are Terraform-managed (`terraform/modules/network-policies/`). CNI: Calico v3.29.0.
 
 Default posture: **deny all ingress and egress**, then selectively allow:
 
@@ -65,7 +65,7 @@ Default posture: **deny all ingress and egress**, then selectively allow:
 | dotnet-api → php-service | 8000 |
 | dotnet-api → mysql | 3306 |
 | dotnet-api → GitHub API (egress, non-RFC1918) | 443 |
-| prometheus → dotnet-api, php-service | 5116, 8000 |
+| prometheus → dotnet-api | 5116 |
 | grafana → prometheus | 9090 |
 | All pods → kube-dns | 53 |
 
