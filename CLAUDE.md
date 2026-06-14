@@ -82,7 +82,12 @@ terraform apply "-target=module.vault_secrets_operator.helm_release.vso"
 Vault runs in server mode with a 1 Gi PVC. After this step it auto-unseals on future pod restarts via the `vault-unseal-keys` K8s Secret. Vault policies and auth roles are configured by `scripts/configure-vault.sh` (vault CLI) — Terraform does not manage them.
 ```bash
 export VAULT_ADDR=http://127.0.0.1:30200
-kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=vault -n vault --timeout=120s
+
+# Wait for the container to be running (sealed Vault never passes its readiness
+# probe, so --for=condition=ready times out — use jsonpath on the phase instead).
+until kubectl get pod vault-0 -n vault -o jsonpath='{.status.phase}' 2>/dev/null | grep -q Running; do
+  echo "Waiting for vault-0..."; sleep 5
+done
 
 vault operator init -key-shares=1 -key-threshold=1 | tee vault-init.txt
 # ⚠ vault-init.txt contains your unseal key and root token.
@@ -95,6 +100,8 @@ vault operator unseal "$UNSEAL_KEY"
 kubectl create secret generic vault-unseal-keys -n vault --from-literal=key="$UNSEAL_KEY"
 rm vault-init.txt
 
+
+cd Desktop/projects/CodeReview/Review_Code
 bash scripts/configure-vault.sh
 ```
 
@@ -113,6 +120,24 @@ bash scripts/seed-vault.sh
 **Step 5 — Deploy application** (PowerShell)
 ```powershell
 kubectl apply -f k8s/argocd/app-codereview.yaml
+```
+
+**Step 6 — Verify pods and access the app** (PowerShell)
+```powershell
+kubectl get pods -n codereview   # all pods should reach 1/1 Running within ~2 min
+```
+
+Browser access (kind host port mappings — no port-forward needed):
+- **React UI:** http://localhost:3000
+- **Grafana:** http://localhost:3001 — credentials: `admin` / read from `kubectl get secret grafana-secrets -n codereview -o jsonpath='{.data.admin-password}' | base64 -d`
+- **Prometheus:** http://localhost:9090
+- **ArgoCD:** http://localhost:8080
+- **Vault UI:** http://localhost:30200
+
+Register a new user in the React UI (no pre-seeded accounts). Add your GitHub PAT if not done during seeding:
+```bash
+vault kv patch secret/codereview/dotnet-api/app GITHUB_PAT=<your-pat>
+kubectl rollout restart deployment/dotnet-api -n codereview
 ```
 
 **Re-seeding after a cluster deletion:** PVC is gone on `kind delete cluster` — repeat steps 1b and 3–4 in full (new `vault operator init`, new secrets). If you only stop/start the kind Docker container without deleting the cluster, the PVC persists and Vault auto-unseals — no re-seeding needed.
@@ -175,10 +200,11 @@ Defined in `infrastructure/mysql/DB_Schema.sql` and applied as a K8s ConfigMap (
 - `terraform/modules/` — reusable modules: `namespace`, `service-accounts`, `rbac`, `vault`, `vault-secrets-operator`, `network-policies`
 
 ### NetworkPolicies
-- All 11 `NetworkPolicy` resources in the `codereview` namespace are Terraform-owned (`terraform/modules/network-policies/main.tf`).
-- CNI: Calico v3.29.0 (kindnet disabled). Enforces policies including after kube-proxy NodePort DNAT.
-- Allowed traffic: browser→react-app, react-app→dotnet-api, dotnet-api→mysql/php-service/GitHub:443, prometheus→dotnet-api:5116/php-service:8000/k8s-API:443, grafana→prometheus, DNS.
-- Denied traffic: php-service→mysql, php-service→dotnet-api, react-app→php-service, mysql→*, external→dotnet-api/prometheus/grafana NodePorts.
+- All 12 `NetworkPolicy` resources in the `codereview` namespace are Terraform-owned (`terraform/modules/network-policies/main.tf`).
+- CNI: Calico v3.29.0 (kindnet disabled). Enforces policies **after** kube-proxy NodePort DNAT.
+- Allowed traffic: browser→react-app/grafana/prometheus (NodePort), react-app→dotnet-api, dotnet-api→mysql/php-service/GitHub:443, prometheus→dotnet-api:5116/php-service:8000/k8s-API:**6443**, grafana→prometheus, DNS.
+- Denied traffic: php-service→mysql, php-service→dotnet-api, react-app→php-service, mysql→*, external→dotnet-api NodePort.
+- **Port 6443 note:** Prometheus egress to the Kubernetes API uses port 6443, not 443. kube-proxy DNAT rewrites `kubernetes.default.svc:443` to the actual control-plane endpoint (172.18.0.x:6443) before Calico evaluates the policy in the iptables FORWARD chain.
 - See `terraform/modules/network-policies/README.md` for the full traffic matrix.
 
 ## Key Environment Variables

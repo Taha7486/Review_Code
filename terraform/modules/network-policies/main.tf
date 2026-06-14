@@ -311,9 +311,12 @@ resource "kubernetes_network_policy" "allow_php_service_ingress" {
 # prometheus egress:
 #   → dotnet-api:5116   (pod-IP scrape via kubernetes_sd_configs role:pod)
 #   → php-service:8000  (pod-IP scrape)
-#   → 0.0.0.0/0:443     (Kubernetes API server at kubernetes.default.svc:443
-#                         for pod SD discovery — API server is not a pod so
-#                         pod_selector cannot be used; allow broad port 443)
+#   → 0.0.0.0/0:6443    (Kubernetes API server for pod SD discovery)
+#
+# Port 6443, not 443: kube-proxy DNAT rewrites kubernetes.default.svc:443
+# to the actual control-plane endpoint (172.18.0.x:6443) BEFORE Calico
+# evaluates the NetworkPolicy in the iptables FORWARD chain. The NetworkPolicy
+# therefore sees the post-DNAT destination port (6443).
 resource "kubernetes_network_policy" "allow_prometheus_egress" {
   metadata {
     name      = "allow-prometheus-egress"
@@ -360,14 +363,18 @@ resource "kubernetes_network_policy" "allow_prometheus_egress" {
         }
       }
       ports {
-        port     = "443"
+        port     = "6443"
         protocol = "TCP"
       }
     }
   }
 }
 
-# prometheus ingress: only from grafana on port 9090 (datasource query).
+# prometheus ingress:
+#   - from grafana:9090 (datasource query)
+#   - from any source on 9090 (NodePort 30090 → browser direct access)
+#     Calico enforces after kube-proxy DNAT, so an explicit any-source allow
+#     is required for NodePort traffic.
 resource "kubernetes_network_policy" "allow_prometheus_ingress" {
   metadata {
     name      = "allow-prometheus-ingress"
@@ -391,6 +398,38 @@ resource "kubernetes_network_policy" "allow_prometheus_ingress" {
       }
       ports {
         port     = "9090"
+        protocol = "TCP"
+      }
+    }
+    ingress {
+      # No "from" block = allow from any source (NodePort 30090 browser access)
+      ports {
+        port     = "9090"
+        protocol = "TCP"
+      }
+    }
+  }
+}
+
+# grafana ingress: from any source on port 3000 (NodePort 30001 → browser).
+# Calico enforces after kube-proxy DNAT so explicit any-source allow is needed.
+resource "kubernetes_network_policy" "allow_grafana_ingress" {
+  metadata {
+    name      = "allow-grafana-ingress"
+    namespace = var.namespace
+    labels    = var.labels
+  }
+  spec {
+    pod_selector {
+      match_labels = {
+        "app" = "grafana"
+      }
+    }
+    policy_types = ["Ingress"]
+    ingress {
+      # No "from" block = allow from any source (NodePort traffic post-DNAT)
+      ports {
+        port     = "3000"
         protocol = "TCP"
       }
     }

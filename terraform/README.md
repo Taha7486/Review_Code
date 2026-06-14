@@ -98,7 +98,11 @@ Run in **Git Bash** after `terraform apply`. Requires vault CLI in PATH.
 
 ```bash
 export VAULT_ADDR=http://127.0.0.1:30200
-kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=vault -n vault --timeout=120s
+
+# Sealed Vault never passes its readiness probe — use phase polling instead.
+until kubectl get pod vault-0 -n vault -o jsonpath='{.status.phase}' 2>/dev/null | grep -q Running; do
+  echo "Waiting for vault-0..."; sleep 5
+done
 
 vault operator init -key-shares=1 -key-threshold=1 | tee vault-init.txt
 # ⚠ Save vault-init.txt to a password manager, then delete it.

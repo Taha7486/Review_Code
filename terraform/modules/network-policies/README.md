@@ -19,9 +19,19 @@ never separated by a time window.
 | allow-php-service-ingress | Ingress | app=dotnet-api, app=prometheus | app=php-service | 8000 TCP |
 | allow-prometheus-egress | Egress | app=prometheus | app=dotnet-api | 5116 TCP |
 | allow-prometheus-egress | Egress | app=prometheus | app=php-service | 8000 TCP |
-| allow-prometheus-egress | Egress | app=prometheus | 0.0.0.0/0 | 443 TCP (k8s SD) |
+| allow-prometheus-egress | Egress | app=prometheus | 0.0.0.0/0 | 6443 TCP (k8s SD) |
 | allow-prometheus-ingress | Ingress | app=grafana | app=prometheus | 9090 TCP |
+| allow-prometheus-ingress | Ingress | any (NodePort) | app=prometheus | 9090 TCP |
+| allow-grafana-ingress | Ingress | any (NodePort) | app=grafana | 3000 TCP |
 | allow-grafana-egress | Egress | app=grafana | app=prometheus | 9090 TCP |
+
+## Port 6443 vs 443 for Prometheus → K8s API
+
+Prometheus uses `kubernetes_sd_configs role: pod` which calls the Kubernetes API
+to discover scrape targets. The kubernetes ClusterIP service exposes port 443,
+but kube-proxy DNAT rewrites that to the actual control-plane endpoint on port
+6443 **before** Calico evaluates the NetworkPolicy in the iptables FORWARD chain.
+The egress rule therefore uses port 6443, not 443.
 
 ## Explicitly denied paths
 
@@ -29,8 +39,6 @@ never separated by a time window.
 - php-service → mysql — no path in matrix
 - react-app → php-service — no path in matrix
 - External → dotnet-api:5116 (NodePort 30116) — blocked; use react-app UI
-- External → prometheus:9090 (NodePort 30090) — blocked; internal monitoring only
-- External → grafana:3000 (NodePort 30001) — blocked; internal monitoring only
 
 ## VSO / Vault note
 
@@ -43,4 +51,4 @@ App pods consume VSO-synced K8s Secrets and do NOT contact Vault directly.
 `livenessProbe` / `readinessProbe` traffic originates from the node (kubelet),
 not from a pod. Most CNIs (including Calico on kind) exempt kubelet probe
 traffic from NetworkPolicy enforcement. Probes are verified to work correctly
-after policy application — see phase3_imp.md Step 3.7.
+after policy application.
