@@ -119,16 +119,17 @@ data:
             "defaults": {
               "color": { "mode": "thresholds" },
               "mappings": [],
-              "max": 500,
+              "max": 120,
               "min": 0,
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   { "color": "green", "value": null },
-                  { "color": "red", "value": 200 }
+                  { "color": "yellow", "value": 30 },
+                  { "color": "red", "value": 60 }
                 ]
               },
-              "unit": "ms"
+              "unit": "s"
             },
             "overrides": []
           },
@@ -143,7 +144,7 @@ data:
           "targets": [
             {
               "datasource": { "type": "prometheus", "uid": "prometheus" },
-              "expr": "histogram_quantile(0.95, sum by (le) (rate(code_review_analysis_duration_seconds_bucket[5m]))) * 1000",
+              "expr": "histogram_quantile(0.95, sum by (le) (rate(code_review_analysis_duration_seconds_bucket[5m])))",
               "legendFormat": "P95",
               "refId": "A"
             }
