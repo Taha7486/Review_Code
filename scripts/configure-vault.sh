@@ -7,7 +7,7 @@
 # this configuration via the vault CLI (after init + unseal) avoids that
 # chicken-and-egg problem.
 #
-# Run AFTER vault operator init + unseal (step 3b in CLAUDE.md).
+# Run AFTER vault operator init + unseal (step 3b in docs/cluster-setup.md).
 # VAULT_ADDR and VAULT_TOKEN must be exported in the shell before calling.
 set -euo pipefail
 

@@ -8,7 +8,7 @@ resource "helm_release" "vault" {
   # Do not wait for pod readiness: an uninitialized Vault pod fails its readiness
   # probe (vault status exits 2 for "sealed") and would cause a 5-minute timeout.
   # The Helm release succeeds as soon as the chart resources are applied.
-  # Vault is initialized and unsealed manually in step 3b of CLAUDE.md.
+  # Vault is initialized and unsealed manually in step 3b of docs/cluster-setup.md.
   wait = false
 
   values = [
@@ -61,7 +61,7 @@ resource "helm_release" "vault" {
         ]
 
         # Auto-unseal on pod restart: reads the unseal key from the mounted
-        # secret (written once by the operator in step 3a of CLAUDE.md).
+        # secret (written once by the operator in step 3b of docs/cluster-setup.md).
         # The || true ensures the hook never fails — on first boot the file
         # does not exist yet and the operator unseals manually.
         lifecycle = {

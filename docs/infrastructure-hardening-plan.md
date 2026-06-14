@@ -1110,7 +1110,7 @@ allow-prometheus-ingress, allow-grafana-egress
 
 5. `.gitignore` — Added `vault-init.txt` to prevent accidental commit of unseal key and root token.
 
-6. `CLAUDE.md` — Added step 3a (vault operator init + unseal + create vault-unseal-keys secret). Updated step 4 to reflect new VAULT_TOKEN export. Added note on persistence behaviour.
+6. `docs/cluster-setup.md` — Added step 3b (vault operator init + unseal + create vault-unseal-keys secret). Updated step 4 to reflect new VAULT_TOKEN export. Added note on persistence behaviour.
 
 7. `terraform/README.md` — Replaced "Seed Vault secrets after every cluster restart" with full init/unseal procedure and explanation of auto-unseal and PVC persistence.
 
@@ -1136,15 +1136,15 @@ rm vault-init.txt   # after saving to password manager
 
 ### 2026-06-14 — Full end-to-end bootstrap and test on a fresh kind cluster
 
-**What was verified:** Complete bootstrap (Steps 1–6 from CLAUDE.md) on a fresh kind cluster, followed by end-to-end app testing and Grafana metrics verification.
+**What was verified:** Complete bootstrap (Steps 1–6 from docs/cluster-setup.md) on a fresh kind cluster, followed by end-to-end app testing and Grafana metrics verification.
 
 **Issues found and fixed during this session:**
 
 #### Issue 1: ArgoCD NodePort service missing from bootstrap steps
 
-**What happened:** `kubectl apply -f k8s/argocd/argocd-ui.yaml` was not included in the CLAUDE.md Step 2 instructions. The ArgoCD UI at https://localhost:8080 returned `ERR_EMPTY_RESPONSE` because the NodePort service (`argocd-server-nodeport`) did not exist.
+**What happened:** `kubectl apply -f k8s/argocd/argocd-ui.yaml` was not included in the Step 2 instructions. The ArgoCD UI at https://localhost:8080 returned `ERR_EMPTY_RESPONSE` because the NodePort service (`argocd-server-nodeport`) did not exist.
 
-**Fix:** Applied `kubectl apply -f k8s/argocd/argocd-ui.yaml` manually, then added it to CLAUDE.md Step 2.
+**Fix:** Applied `kubectl apply -f k8s/argocd/argocd-ui.yaml` manually, then added it to `docs/cluster-setup.md` Step 2.
 
 **Note:** ArgoCD serves HTTPS (self-signed cert). Use `https://localhost:8080`, not http.
 

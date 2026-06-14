@@ -131,33 +131,26 @@ graph LR
 
 ### Quick Start (Kubernetes)
 
-1.  **Create Cluster:**
-    ```bash
-    kind create cluster --config kind-config.yaml
-    kubectl config set-context --current --namespace=default
-    ```
+For the full step-by-step bootstrap (Vault, Terraform, ArgoCD, secrets), see **[docs/cluster-setup.md](docs/cluster-setup.md)**.
 
-2.  **Install ArgoCD:**
-    ```bash
-    kubectl create namespace argocd
-    kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+**TL;DR — 6 steps from a fresh machine:**
 
-    ```
+1. `kind create cluster --config kind-config.yaml`
+2. Install Calico CNI + ArgoCD
+3. `terraform -chdir=terraform/environments/kind apply` (two-stage — see setup guide)
+4. Init + unseal Vault, then `bash scripts/seed-vault.sh`
+5. `kubectl apply -f k8s/argocd/app-codereview.yaml`
+6. Open http://localhost:3000
 
-3.  **Deploy Application:**
-    ```bash
-    kubectl apply -f k8s/argocd/app-codereview.yaml
-    kubectl apply -f k8s/argocd/argocd-ui.yaml
-    # Get ArgoCD password
-    kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | ForEach-Object { [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($_)) }
-    ```
+**Browser access after bootstrap:**
 
-4.  **Access Services:**
-    *   **Frontend:** [http://localhost:3000](http://localhost:3000)
-    *   **ArgoCD UI:** [https://localhost:8080](https://localhost:8080) (self-signed cert — accept browser warning; username `admin`)
-    *   **Grafana:** [http://localhost:3001](http://localhost:3001)
-
-For detailed instructions, see the [GitOps Implementation Plan](docs/gitops-implementation-plan.md).
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| React UI | http://localhost:3000 | Register a new account |
+| Grafana | http://localhost:3001 | `admin` / from Vault |
+| Prometheus | http://localhost:9090 | — |
+| ArgoCD | https://localhost:8080 | `admin` / from K8s secret |
+| Vault UI | http://localhost:30200 | Root token from init |
 
 ---
 

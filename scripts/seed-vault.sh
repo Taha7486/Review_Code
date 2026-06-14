@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Seed Vault KV secrets for the CodeReview platform.
 #
-# Run AFTER vault operator init + unseal (step 3a in CLAUDE.md).
+# Run AFTER vault operator init + unseal (step 3b in docs/cluster-setup.md).
 # VAULT_ADDR and VAULT_TOKEN must be exported in the shell before calling this script.
 #
 # All secrets except GITHUB_PAT are generated randomly on each run.
