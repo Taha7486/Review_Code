@@ -15,9 +15,10 @@ vendor/
 build/
 dist/
 
-# IDE files
+# IDE and AI assistant files
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
 
