@@ -16,9 +16,7 @@ spec:
         component: analyzer
         part-of: codereview
       annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/path: "/metrics"
-        prometheus.io/port: "8000"
+        prometheus.io/scrape: "false"
     spec:
       serviceAccountName: sa-php-service
       containers:

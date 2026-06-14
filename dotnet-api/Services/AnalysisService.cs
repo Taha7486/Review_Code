@@ -203,7 +203,8 @@ public class AnalysisService : IAnalysisService
             
             // Record Prometheus metrics
             _prometheusMetrics.IncrementAnalysisStarted("completed");
-            // _prometheusMetrics.RecordAnalysisDuration(duration); // REMOVED - Metric not used in dashboard
+            _prometheusMetrics.RecordAnalysisDuration(duration);
+            _prometheusMetrics.RecordFilesAnalyzed(phpResult.FilesAnalyzed);
             foreach (var fileResult in phpResult.Results)
             {
                 foreach (var issue in fileResult.Issues)
@@ -211,7 +212,7 @@ public class AnalysisService : IAnalysisService
                     _prometheusMetrics.IncrementIssuesFound(issue.Severity, issue.Category);
                 }
             }
-            
+
             // Record old metrics service
             _metricsService?.RecordAnalysisDuration(duration, phpResult.FilesAnalyzed, totalIssues);
             foreach (var fileResult in phpResult.Results)
@@ -521,8 +522,8 @@ public class AnalysisService : IAnalysisService
             
             // Record Prometheus metrics
             _prometheusMetrics.IncrementAnalysisStarted("completed");
-            // _prometheusMetrics.RecordAnalysisDuration(duration); // REMOVED - Metric not used in dashboard
-            // _prometheusMetrics.DecrementActiveAnalysis(); // REMOVED - Metric not used in dashboard
+            _prometheusMetrics.RecordAnalysisDuration(duration);
+            _prometheusMetrics.RecordFilesAnalyzed(phpResult.FilesAnalyzed);
             foreach (var fileResult in phpResult.Results)
             {
                 foreach (var issue in fileResult.Issues)
@@ -530,7 +531,7 @@ public class AnalysisService : IAnalysisService
                     _prometheusMetrics.IncrementIssuesFound(issue.Severity, issue.Category);
                 }
             }
-            
+
             // Record old metrics
             _metricsService?.RecordAnalysisDuration(duration, phpResult.FilesAnalyzed, totalIssues);
             foreach (var fileResult in phpResult.Results)

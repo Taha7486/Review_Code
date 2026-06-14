@@ -14,5 +14,8 @@ namespace dotnet_api.Services
         /// Increment issues found counter by severity and category
         /// </summary>
         void IncrementIssuesFound(string severity, string category);
+
+        void RecordFilesAnalyzed(int count);
+        void RecordAnalysisDuration(double seconds);
     }
 }
