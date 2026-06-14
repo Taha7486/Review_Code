@@ -54,9 +54,9 @@ terraform -chdir=terraform/environments/kind apply "-target=module.vault_secrets
 
 ## Step 3b — Initialize, unseal, and configure Vault
 
-Run in **Git Bash** from the repo root. Do this **once per cluster creation**, before Stage B.
+Run in **Git Bash**. Do this **once per cluster creation**, before Stage B.
 
-Vault runs in server mode with a 1 Gi PVC. After this step it auto-unseals on future pod restarts via the `vault-unseal-keys` K8s Secret.
+Open Git Bash **inside the repo folder** (right-click the cloned folder → "Open Git Bash here"), or `cd` to it manually. All `bash scripts/` calls are relative to the repo root.
 
 ```bash
 export VAULT_ADDR=http://127.0.0.1:30200
