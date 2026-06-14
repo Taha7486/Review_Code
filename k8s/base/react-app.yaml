@@ -26,7 +26,7 @@ spec:
       serviceAccountName: sa-react-app
       containers:
       - name: react-app
-        image: taha7486/code-review-frontend:latest
+        image: taha7486/code-review-frontend:ad7a91e573d092fd5c9aaa4798f797a96aea034b
         ports:
         - containerPort: 80  # Nginx serves on port 80 inside container
         envFrom:
