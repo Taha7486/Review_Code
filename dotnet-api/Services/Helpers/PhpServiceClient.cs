@@ -68,7 +68,7 @@ public class PhpServiceClient : IPhpServiceClient
         client.DefaultRequestHeaders.Add("X-Correlation-Id", correlationId);
         
         // Add shared secret for service-to-service authentication
-        var internalSecret = _config["ServiceUrls:InternalSecret"];
+        var internalSecret = ExpandEnvVars(_config["ServiceUrls:InternalSecret"]);
         if (!string.IsNullOrEmpty(internalSecret) && internalSecret != "change_me_in_production")
         {
             client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", internalSecret);
